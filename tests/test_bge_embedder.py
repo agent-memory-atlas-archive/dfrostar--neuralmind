@@ -4,8 +4,6 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import numpy as np
-
 
 class TestEmbedderRegistry(unittest.TestCase):
     """Tests for the embedder registry and dimension lookup."""
@@ -107,9 +105,10 @@ class TestEmbedderMismatchDetection(unittest.TestCase):
 
     def test_check_embedder_mismatch_no_mismatch(self):
         """No warning when embedder matches stored dim."""
+        import json
+
         from neuralmind.cli import _check_embedder_mismatch
 
-        import json
         with tempfile.TemporaryDirectory() as tmpdir:
             meta_path = Path(tmpdir) / ".neuralmind" / "ir_meta.json"
             meta_path.parent.mkdir(parents=True, exist_ok=True)
@@ -119,9 +118,10 @@ class TestEmbedderMismatchDetection(unittest.TestCase):
 
     def test_check_embedder_mismatch_with_mismatch(self):
         """Warning when embedder dim differs from stored dim."""
+        import json
+
         from neuralmind.cli import _check_embedder_mismatch
 
-        import json
         with tempfile.TemporaryDirectory() as tmpdir:
             meta_path = Path(tmpdir) / ".neuralmind" / "ir_meta.json"
             meta_path.parent.mkdir(parents=True, exist_ok=True)

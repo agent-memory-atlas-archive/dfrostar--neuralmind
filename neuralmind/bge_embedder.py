@@ -24,9 +24,8 @@ Model resolution order for the downloaded model folder:
 from __future__ import annotations
 
 import os
-from functools import cached_property
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 import numpy as np
 
@@ -40,8 +39,6 @@ _NM_CACHE = Path.home() / ".cache" / "neuralmind" / _MODEL_NAME
 
 class OnnxNotAvailableError(Exception):
     """Raised when sentence-transformers is not installed but bge-large was requested."""
-
-    pass
 
 
 class BGELargeEmbedder:
@@ -79,9 +76,7 @@ class BGELargeEmbedder:
         if not path.is_dir():
             return False
         # Accept either PyTorch or Safetensors format
-        has_weights = (path / "pytorch_model.bin").exists() or (
-            path / "model.safetensors"
-        ).exists()
+        has_weights = (path / "pytorch_model.bin").exists() or (path / "model.safetensors").exists()
         has_config = (path / "config.json").exists()
         return has_weights and has_config
 
@@ -139,11 +134,9 @@ def get_embedder(name: str = "all-MiniLM-L6-v2") -> Callable[[list[str]], list[l
         return BGELargeEmbedder()
     if name in ("all-MiniLM-L6-v2", "minilm", "default"):
         from .onnx_embedder import OnnxMiniLMEmbedder
+
         return OnnxMiniLMEmbedder()
-    raise ValueError(
-        f"Unknown embedder: '{name}'. "
-        f"Available: all-MiniLM-L6-v2, bge-large"
-    )
+    raise ValueError(f"Unknown embedder: '{name}'. Available: all-MiniLM-L6-v2, bge-large")
 
 
 def embedder_dim(name: str = "all-MiniLM-L6-v2") -> int:
