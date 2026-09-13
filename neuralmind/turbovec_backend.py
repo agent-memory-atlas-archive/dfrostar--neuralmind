@@ -348,6 +348,28 @@ class TurboVecEmbedder(EmbeddingBackend):
         )
 
     # ------------------------------------------------------------------ index
+    @property
+    def dim(self) -> int:
+        """Return the dimensionality of the stored or active embedder.
+
+        Resolution order:
+        1. Stored dim in SQLite meta (from a previous build)
+        2. Injected embedder's ``dim`` attribute
+        3. Default embedder's ``dim`` attribute
+        """
+        try:
+            stored = self._dim()
+            if stored is not None:
+                return stored
+        except Exception:
+            pass  # _conn not available (__new__ without __init__)
+        if self._embed_fn is not None:
+            return getattr(self._embed_fn, "dim", 384)
+        try:
+            return getattr(_default_embed_fn(), "dim", 384)
+        except Exception:
+            return 384
+
     def _dim(self) -> int | None:
         stored = self._meta_get("dim")
         return int(stored) if stored else None
