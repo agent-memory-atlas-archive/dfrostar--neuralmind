@@ -53,8 +53,8 @@ REPORT_PATH = REPO_ROOT / "tests" / "benchmark" / "report.md"
 # (~500 lines) so ratios here top out around 5-10× — real repos with
 # thousands of lines consistently hit 12-50× because the naive baseline
 # is orders of magnitude larger. The floor catches catastrophic
-# Conservative regression floor. The fixture is intentionally small
-# is orders of magnitude larger. The floor catches catastrophic
+# regressions (retriever returning the whole graph, dropping to ~1×),
+# not a missed optimization on a toy input.
 REDUCTION_FLOOR = 4.0
 # Phase-2 A/B repeats: one draw of a metric that moves decides the gate by
 # luck. Three matches the onboarding gate's existing averaging.

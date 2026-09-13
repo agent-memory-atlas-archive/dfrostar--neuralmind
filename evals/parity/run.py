@@ -66,8 +66,8 @@ FAITHFULNESS_TOLERANCE = float(os.environ.get("NEURALMIND_PARITY_FAITHFULNESS_TO
 # Absolute floors, mirroring the standalone CI gates (ci-benchmark.yml):
 # reduction must clear the benchmark's conservative floor, and the faithfulness
 # delta must be non-negative (smart selection ≥ dumb truncation at equal cost).
-REDUCTION_FLOOR = float(os.environ.get("NEURALMIND_PARITY_REDUCTION_FLOOR", "3.5"))
-FAITHFULNESS_FLOOR = float(os.environ.get("NEURALMIND_PARITY_FAITHFULNESS_FLOOR", "-0.10"))
+REDUCTION_FLOOR = float(os.environ.get("NEURALMIND_PARITY_REDUCTION_FLOOR", "4.0"))
+FAITHFULNESS_FLOOR = float(os.environ.get("NEURALMIND_PARITY_FAITHFULNESS_FLOOR", "0.0"))
 
 # The faithfulness A/B rides on ANN query-time ordering, which is not perfectly
 # stable run to run. The self-benchmark's onboarding gate already averages 3
