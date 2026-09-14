@@ -200,6 +200,12 @@ class BM25Index:
         :func:`_tokenize_prose` so hyphenated terms (BPC-157, GLP-1) stay
         whole — critical for book/prose retrieval where those tokens carry
         meaning that code-style splitting (``bpc``, ``157``) would dilute.
+
+        Applies two enhancements for book retrieval:
+        1. Downweights reference/appendix chapters (e.g., Claims Register)
+           so drug names in reference tables don't outrank content chapters.
+        2. Boosts documents containing ALL rare query terms (AND logic)
+           for multi-drug comparison queries.
         """
         if self._N == 0 or os.environ.get("NEURALMIND_BM25") == "0":
             return []
@@ -210,6 +216,9 @@ class BM25Index:
 
         scores: dict[int, float] = {}
         k1, b, avgdl = self.k1, self.b, self._avgdl
+
+        # Identify rare terms (DF ≤ 5) for AND boost
+        rare_terms = [t for t in q_tokens if t in self._idf and self._df.get(t, 0) <= 5]
 
         for term in q_tokens:
             if term not in self._idf:
@@ -230,6 +239,31 @@ class BM25Index:
 
         if not scores:
             return []
+
+        # Fix 1: Downweight reference/appendix chapters (Claims Register)
+        # These contain drug names in reference tables but aren't content chapters
+        reference_penalty = 0.5
+        for i in scores:
+            meta = self._metadatas[i] if i < len(self._metadatas) else {}
+            chapter = meta.get("chapter", "")
+            section = meta.get("section", "")
+            # Downweight claims register and appendix content
+            if "claims register" in chapter.lower() or "claims register" in section.lower():
+                scores[i] *= reference_penalty
+            # Also downweight by source filename for robustness
+            source_file = meta.get("source_file", "")
+            if "claims-register" in source_file or "claims_register" in source_file:
+                scores[i] *= reference_penalty
+
+        # Fix 2: AND boost for multi-term queries with rare terms
+        # When query has 2+ rare terms, boost documents containing ALL of them
+        if len(rare_terms) >= 2:
+            and_boost = 1.5  # 50% boost for documents with all rare terms
+            for i in scores:
+                tf_map = self._tf[i]
+                has_all = all(tf_map.get(t, 0) > 0 for t in rare_terms)
+                if has_all:
+                    scores[i] *= and_boost
 
         ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:n]
         max_score = ranked[0][1] if ranked else 1.0

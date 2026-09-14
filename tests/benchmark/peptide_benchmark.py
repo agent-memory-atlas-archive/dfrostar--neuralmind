@@ -33,14 +33,12 @@ CHAPTER_FILES = [
             "regulatory-landscape",
             "future-of-peptide-therapy",
             "questions-to-ask-prescriber",
-            "conclusion",
-            "about-the-authors",
             "claims-register-appendix",
             "back-matter",
         ],
         start=1,
     )
-]
+] + ["00_front-matter.md", "99_back-matter.md"]
 
 
 @dataclass
