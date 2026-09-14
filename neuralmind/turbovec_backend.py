@@ -188,7 +188,11 @@ class TurboVecEmbedder(EmbeddingBackend):
                 content_hash TEXT,
                 embedded_at  TEXT,
                 content_category TEXT,
-                tags         TEXT
+                tags         TEXT,
+                chapter      TEXT,
+                section      TEXT,
+                heading      TEXT,
+                heading_level INTEGER DEFAULT 0
             );
             CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
             CREATE TABLE IF NOT EXISTS book_assets (
@@ -197,16 +201,21 @@ class TurboVecEmbedder(EmbeddingBackend):
                 asset_type   TEXT,
                 chapter_ref  TEXT,
                 caption      TEXT,
-                tracked_at   TEXT
+                tracked_at  TEXT
             );
             """)
         # Additive columns for existing DBs (don't fail if already present)
+        for col, typ in [("content_category", "TEXT"), ("tags", "TEXT"), ("chapter", "TEXT"), ("section", "TEXT"), ("heading", "TEXT"), ("heading_level", "INTEGER DEFAULT 0")]:
+            try:
+                self._conn.execute(f"ALTER TABLE nodes ADD COLUMN {col} {typ}")
+            except Exception:
+                pass
         try:
-            self._conn.execute("ALTER TABLE nodes ADD COLUMN content_category TEXT")
+            self._conn.execute("ALTER TABLE nodes ADD COLUMN tags TEXT")
         except Exception:
             pass
         try:
-            self._conn.execute("ALTER TABLE nodes ADD COLUMN tags TEXT")
+            self._conn.execute("ALTER TABLE nodes ADD COLUMN prose_meta TEXT")
         except Exception:
             pass
         self._conn.commit()
@@ -554,6 +563,10 @@ class TurboVecEmbedder(EmbeddingBackend):
         for key in ("practice_id", "title", "domain", "framework", "content_category"):
             if key in node_meta:
                 meta[key] = str(node_meta[key])
+        # Preserve prose metadata (chapter, section, heading) for book retrieval
+        for key in ("chapter", "section", "heading", "heading_level"):
+            if key in node_meta:
+                meta[key] = node_meta[key]
         # Serialize tags as JSON for SQLite storage
         if "tags" in node_meta:
             import json
@@ -564,10 +577,19 @@ class TurboVecEmbedder(EmbeddingBackend):
     def get_all_nodes(self) -> list[dict]:
         """Return all indexed nodes as a list of dicts."""
         nodes: list[dict] = []
+        # Build SELECT dynamically to handle legacy DBs without prose columns
+        prose_cols = ""
         try:
-            rows = self._conn.execute(
-                "SELECT node_id, document, label, file_type, source_file, community, content_category, tags FROM nodes"
-            ).fetchall()
+            # Check if prose columns exist
+            cols = [row[1] for row in self._conn.execute("PRAGMA table_info(nodes)").fetchall()]
+            if "chapter" in cols:
+                prose_cols = ", chapter, section, heading, heading_level"
+        except Exception:
+            pass
+
+        sql = f"SELECT node_id, document, label, file_type, source_file, community, content_category, tags{prose_cols} FROM nodes"
+        try:
+            rows = self._conn.execute(sql).fetchall()
         except Exception:
             # Fallback if columns don't exist yet (legacy DB without the columns)
             try:
@@ -577,20 +599,23 @@ class TurboVecEmbedder(EmbeddingBackend):
             except Exception:
                 return nodes
         for row in rows:
+            meta = {
+                "label": row["label"],
+                "file_type": row["file_type"],
+                "source_file": row["source_file"],
+                "community": row["community"],
+            }
+            if prose_cols:
+                meta["chapter"] = row["chapter"] or ""
+                meta["section"] = row["section"] or ""
+                meta["heading"] = row["heading"] or ""
+                meta["heading_level"] = row["heading_level"] or 0
             nodes.append(
                 {
                     "id": row["node_id"],
                     "label": row["label"] or row["node_id"],
                     "content_text": row["document"] or "",
-                    "metadata": {
-                        "label": row["label"],
-                        "file_type": row["file_type"],
-                        "source_file": row["source_file"],
-                        "community": row["community"],
-                        "node_id": row["node_id"],
-                        "content_category": row["content_category"] or "",
-                        "tags": row["tags"] or "",
-                    },
+                    "metadata": meta,
                 }
             )
         return nodes
@@ -672,14 +697,16 @@ class TurboVecEmbedder(EmbeddingBackend):
                 """
                 INSERT INTO nodes(uid, node_id, document, label, file_type,
                                   source_file, community, content_hash, embedded_at,
-                                  content_category, tags)
-                VALUES(?,?,?,?,?,?,?,?,?,?,?)
+                                  content_category, tags, chapter, section, heading, heading_level)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 ON CONFLICT(node_id) DO UPDATE SET
                     document=excluded.document, label=excluded.label,
                     file_type=excluded.file_type, source_file=excluded.source_file,
                     community=excluded.community, content_hash=excluded.content_hash,
                     embedded_at=excluded.embedded_at,
-                    content_category=excluded.content_category, tags=excluded.tags
+                    content_category=excluded.content_category, tags=excluded.tags,
+                    chapter=excluded.chapter, section=excluded.section,
+                    heading=excluded.heading, heading_level=excluded.heading_level
                 """,
                 (
                     uid,
@@ -693,6 +720,10 @@ class TurboVecEmbedder(EmbeddingBackend):
                     now,
                     meta.get("content_category", ""),
                     meta.get("tags", ""),
+                    meta.get("chapter", ""),
+                    meta.get("section", ""),
+                    meta.get("heading", ""),
+                    meta.get("heading_level", 0),
                 ),
             )
 
@@ -761,7 +792,14 @@ class TurboVecEmbedder(EmbeddingBackend):
                     scope_filtered += 1
                     bar.advance()
                     continue
-                text = self._node_to_text(node)
+                # For prose nodes, use content_text as the embedding text;
+                # for code nodes, use the standard node-to-text conversion.
+                raw_content_text = node.get("content_text", "")
+                text = (
+                    raw_content_text
+                    if raw_content_text
+                    else self._node_to_text(node)
+                )
                 content_hash = self._content_hash(text)
                 row = self._conn.execute(
                     "SELECT uid, content_hash, content_category FROM nodes WHERE node_id = ?",
@@ -788,7 +826,20 @@ class TurboVecEmbedder(EmbeddingBackend):
                 if existing_cc and not meta.get("content_category"):
                     meta["content_category"] = existing_cc
 
-                pending.append((node_id, uid, text, meta, content_hash, is_update))
+                # Build prose_meta JSON for prose nodes
+                prose_meta = None
+                if raw_content_text:
+                    prose_meta = json.dumps(
+                        {
+                            "chapter": node.get("chapter", ""),
+                            "section": node.get("section", ""),
+                            "heading_level": node.get("heading_level", 0),
+                        }
+                    )
+
+                pending.append(
+                    (node_id, uid, text, meta, content_hash, is_update, prose_meta)
+                )
                 bar.advance(detail=node_id[:40])
 
         if not pending:
@@ -804,7 +855,7 @@ class TurboVecEmbedder(EmbeddingBackend):
         now = datetime.now().isoformat()
         new_vecs: list[np.ndarray] = []
         new_ids: list[int] = []
-        for (node_id, uid, text, meta, content_hash, is_update), vec in zip(
+        for (node_id, uid, text, meta, content_hash, is_update, prose_meta), vec in zip(
             pending, vectors, strict=True
         ):
             if is_update:
@@ -821,14 +872,15 @@ class TurboVecEmbedder(EmbeddingBackend):
                 """
                 INSERT INTO nodes(uid, node_id, document, label, file_type,
                                   source_file, community, content_hash, embedded_at,
-                                  content_category, tags)
-                VALUES(?,?,?,?,?,?,?,?,?,?,?)
+                                  content_category, tags, prose_meta)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
                 ON CONFLICT(node_id) DO UPDATE SET
                     document=excluded.document, label=excluded.label,
                     file_type=excluded.file_type, source_file=excluded.source_file,
                     community=excluded.community, content_hash=excluded.content_hash,
                     embedded_at=excluded.embedded_at,
-                    content_category=excluded.content_category, tags=excluded.tags
+                    content_category=excluded.content_category, tags=excluded.tags,
+                    prose_meta=excluded.prose_meta
                 """,
                 (
                     uid,
@@ -842,6 +894,7 @@ class TurboVecEmbedder(EmbeddingBackend):
                     now,
                     meta.get("content_category", ""),
                     meta.get("tags", ""),
+                    prose_meta,
                 ),
             )
 
@@ -928,7 +981,7 @@ class TurboVecEmbedder(EmbeddingBackend):
 
     @staticmethod
     def _row_metadata(row: sqlite3.Row) -> dict[str, Any]:
-        return {
+        meta = {
             "label": row["label"],
             "file_type": row["file_type"],
             "source_file": row["source_file"],
@@ -937,6 +990,28 @@ class TurboVecEmbedder(EmbeddingBackend):
             "content_category": row["content_category"] or "",
             "tags": row["tags"] or "",
         }
+        # Include prose metadata (chapter, section, heading) when present
+        # Check new columns first, fall back to prose_meta JSON for backward compatibility
+        if "chapter" in row.keys() and row["chapter"]:
+            meta["chapter"] = row["chapter"]
+            meta["section"] = row["section"] or ""
+            meta["heading"] = row["heading"] or ""
+            meta["heading_level"] = row["heading_level"] or 0
+        else:
+            # Fall back to prose_meta JSON column
+            prose_meta_raw = row["prose_meta"] if "prose_meta" in row.keys() else None
+            if prose_meta_raw:
+                try:
+                    import json as _json
+                    prose_meta = _json.loads(prose_meta_raw)
+                    meta["chapter"] = prose_meta.get("chapter", "")
+                    meta["section"] = prose_meta.get("section", "")
+                    meta["heading"] = prose_meta.get("heading", "")
+                    meta["heading_level"] = prose_meta.get("heading_level", 0)
+                except Exception:
+                    pass
+        return meta
+        return meta
 
     def get_nodes_by_ids(self, node_ids: list[str]) -> list[dict]:
         """Fetch indexed nodes by id (synapse-recall pull-in). Missing ids skipped."""
@@ -1061,26 +1136,49 @@ class TurboVecEmbedder(EmbeddingBackend):
         """Build and persist the BM25 keyword index from the SQLite store.
 
         Called automatically at the end of embed_nodes() so the BM25 index
-        stays in sync with the vector index.
+        stays in sync with the vector index. Includes prose metadata (chapter,
+        section, heading) when available.
         """
         from .bm25 import BM25Index
 
+        # Check if prose columns exist
+        prose_cols = ""
+        try:
+            cols = [row[1] for row in self._conn.execute("PRAGMA table_info(nodes)").fetchall()]
+            if "chapter" in cols:
+                prose_cols = ", chapter, section, heading, heading_level"
+        except Exception:
+            pass
+
+        sql = f"SELECT node_id, document, label, file_type, source_file, community{prose_cols} FROM nodes"
+        rows = self._conn.execute(sql).fetchall()
+
         ids, texts, metas = [], [], []
-        rows = self._conn.execute(
-            "SELECT node_id, document, label, file_type, source_file, community FROM nodes"
-        ).fetchall()
+        skipped = 0
         for r in rows:
+            # Skip non-document nodes (code graph nodes, entities, etc.)
+            # Only index content chunks for BM25 retrieval
+            file_type = r["file_type"] or ""
+            if not (file_type.startswith("document") or "chunk" in r["node_id"]):
+                skipped += 1
+                continue
+
             ids.append(r["node_id"])
             texts.append(r["document"] or r["label"] or r["node_id"])
-            metas.append(
-                {
-                    "label": r["label"],
-                    "file_type": r["file_type"],
-                    "source_file": r["source_file"],
-                    "community": r["community"],
-                    "node_id": r["node_id"],
-                }
-            )
+            meta = {
+                "label": r["label"],
+                "file_type": r["file_type"],
+                "source_file": r["source_file"],
+                "community": r["community"],
+                "node_id": r["node_id"],
+            }
+            if prose_cols:
+                meta["chapter"] = r["chapter"] or ""
+                meta["section"] = r["section"] or ""
+                meta["heading"] = r["heading"] or ""
+                meta["heading_level"] = r["heading_level"] or 0
+            metas.append(meta)
+
         if not ids:
             self._bm25_cached = None
             try:
@@ -1088,12 +1186,15 @@ class TurboVecEmbedder(EmbeddingBackend):
             except (FileNotFoundError, AttributeError):
                 pass
             return
-        idx = BM25Index()
+
+        # Use prose tokenizer for prose/book projects (when chapter column exists)
+        from .bm25 import _tokenize_prose
+        tokenizer = _tokenize_prose if prose_cols else None
+        idx = BM25Index(tokenizer=tokenizer)
         idx.add_documents(ids, texts, metas)
         idx.build()
         idx.save(self._bm25_path)
         self._bm25_cached = idx
-
     def bm25_search(self, query: str, n: int = 10) -> list[dict[str, Any]]:
         """BM25 keyword search — same result shape as search().
 
@@ -1106,6 +1207,35 @@ class TurboVecEmbedder(EmbeddingBackend):
         if idx is None or idx._N == 0:
             return []
         raw = idx.search(query, top_k=n)
+        out = []
+        for r in raw:
+            sim = float(r["score"])
+            out.append(
+                {
+                    "id": r["id"],
+                    "document": r["document"],
+                    "metadata": r["metadata"],
+                    "distance": round(1.0 - sim, 6),
+                    "score": round(sim, 6),
+                    "_bm25_raw": r.get("_bm25_raw"),
+                }
+            )
+        return out
+
+    def bm25_search_prose(self, query: str, n: int = 10) -> list[dict[str, Any]]:
+        """BM25 keyword search with prose-friendly tokenization.
+
+        Same result shape as :meth:`search`, but uses :func:`_tokenize_prose`
+        so hyphenated terms (BPC-157, GLP-1, semaglutide) stay whole.
+        Returns an empty list when the index hasn't been built yet or when
+        NEURALMIND_BM25=0 is set.
+        """
+        if os.environ.get("NEURALMIND_BM25") == "0":
+            return []
+        idx = self._load_bm25()
+        if idx is None or idx._N == 0:
+            return []
+        raw = idx.bm25_search_prose(query, n=n)
         out = []
         for r in raw:
             sim = float(r["score"])

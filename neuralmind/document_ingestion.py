@@ -14,6 +14,7 @@ Security guards:
 from __future__ import annotations
 
 import hashlib
+import re
 import time
 from pathlib import Path
 
@@ -166,6 +167,102 @@ def _chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OV
     return chunks
 
 
+_HEADING_RE = re.compile(r"^(#{1,6})\s+(.+)$")
+
+
+def chunk_by_heading(text: str, *, max_section_chars: int = 500) -> list[dict]:
+    """Split markdown text on H1/H2/H3 boundaries.
+
+    Sections longer than ``max_section_chars`` fall back to ``_chunk_text()``
+    within that section (preserving heading metadata on each chunk).
+
+    Headings inside fenced code blocks (````` or ``~~~``) are NOT treated as
+    section boundaries.
+
+    Args:
+        text: Markdown text to split.
+        max_section_chars: Maximum characters per section before fallback
+            chunking kicks in.
+
+    Returns:
+        List of dicts with keys: ``heading``, ``level``, ``content``,
+        ``start_line``, ``end_line``.
+    """
+    lines = text.split("\n")
+    # Find all headings (skipping those inside fenced code blocks)
+    headings: list[tuple[int, int, str]] = []  # (line_idx, level, text)
+    in_fence = False
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith(("```", "~~~")):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        m = _HEADING_RE.match(line)
+        if m:
+            level = len(m.group(1))
+            heading_text = m.group(2).strip()
+            if heading_text:
+                headings.append((i, level, heading_text))
+
+    if not headings:
+        # No headings found — treat the whole text as one section
+        return [
+            {
+                "heading": "",
+                "level": 0,
+                "content": text.strip(),
+                "start_line": 1,
+                "end_line": len(lines),
+            }
+        ]
+
+    result: list[dict] = []
+    for idx, (line_idx, level, heading_text) in enumerate(headings):
+        # Section content runs from the line after the heading to the next
+        # heading (or end of file).
+        start = line_idx + 1
+        end = headings[idx + 1][0] if idx + 1 < len(headings) else len(lines)
+        # Skip fenced code blocks inside content
+        content_lines: list[str] = []
+        cf = False
+        for j in range(start, end):
+            s = lines[j].strip()
+            if s.startswith(("```", "~~~")):
+                cf = not cf
+                continue
+            if cf:
+                continue
+            content_lines.append(lines[j])
+        section_text = "\n".join(content_lines).strip()
+
+        if len(section_text) <= max_section_chars:
+            result.append(
+                {
+                    "heading": heading_text,
+                    "level": level,
+                    "content": section_text,
+                    "start_line": line_idx + 1,
+                    "end_line": end,
+                }
+            )
+        else:
+            # Fall back to overlapping chunks within this section
+            sub_chunks = _chunk_text(section_text, chunk_size=max_section_chars, overlap=CHUNK_OVERLAP)
+            for chunk_idx, chunk in enumerate(sub_chunks):
+                result.append(
+                    {
+                        "heading": f"{heading_text} (part {chunk_idx + 1})" if len(sub_chunks) > 1 else heading_text,
+                        "level": level,
+                        "content": chunk,
+                        "start_line": line_idx + 1,
+                        "end_line": end,
+                    }
+                )
+    return result
+
+
 def _make_node_id(path: Path, index: int = 0) -> str:
     """Create a unique node ID for a document chunk.
 
@@ -273,29 +370,74 @@ def parse_document(
     # two chunks and survive in halves.
     text = redact_if_enabled(text)
 
-    # Chunk if large
-    chunks = _chunk_text(text, chunk_size=chunk_size, overlap=overlap)
-    nodes = []
-
-    # Extract heading hierarchy for book content
-    heading_tags = []
-    is_md = file_type == "markdown" or (
-        content_type != "auto" and path.suffix.lower() in (".md", ".markdown", ".mkd")
+    # Use heading-aware chunking for markdown files
+    use_heading_chunking = (
+        (file_type == "markdown" or path.suffix.lower() in (".md", ".markdown", ".mkd"))
+        and len(text) > chunk_size
     )
-    if is_md and content_type in ("auto", "book"):
-        headings = _extract_heading_hierarchy(text)
-        for h in headings:
-            if h["level"] == "H1":
-                heading_tags.append(f"chapter:{h['text']}")
-            elif h["level"] == "H2":
-                heading_tags.append(f"section:{h['text']}")
-            heading_tags.append(f"depth:{h['level']}")
 
-    for i, chunk in enumerate(chunks):
+    if use_heading_chunking:
+        sections = chunk_by_heading(text, max_section_chars=chunk_size)
+        chunks = []
+        current_chapter = path.stem.replace("-", " ").replace("_", " ").title()
+        current_section = "Overview"
+
+        for section in sections:
+            heading = section.get("heading", "")
+            level = section.get("level", 0)
+            content = section.get("content", "")
+
+            if not content.strip():
+                continue
+
+            if level == 1:
+                current_chapter = heading
+                current_section = "Overview"
+            elif level == 2:
+                current_section = heading
+
+            # If section is small enough, keep as one chunk
+            if len(content) <= chunk_size:
+                chunks.append({
+                    "text": content,
+                    "chapter": current_chapter,
+                    "section": current_section,
+                    "heading": heading,
+                    "level": level,
+                })
+            else:
+                # Sub-chunk large sections
+                sub_chunks = _chunk_text(content, chunk_size=chunk_size, overlap=overlap)
+                for sub_idx, sub in enumerate(sub_chunks):
+                    chunk_label = f"{heading} (part {sub_idx + 1})" if len(sub_chunks) > 1 else heading
+                    chunks.append({
+                        "text": sub,
+                        "chapter": current_chapter,
+                        "section": chunk_label,
+                        "heading": heading,
+                        "level": level,
+                    })
+    else:
+        # For small files or non-markdown, use simple chunking
+        raw_chunks = _chunk_text(text, chunk_size=chunk_size, overlap=overlap)
+        chunks = []
+        current_chapter = path.stem.replace("-", " ").replace("_", " ").title()
+        for chunk_text in raw_chunks:
+            chunks.append({
+                "text": chunk_text,
+                "chapter": current_chapter,
+                "section": "Overview",
+                "heading": "",
+                "level": 0,
+            })
+
+    nodes = []
+    for i, chunk_info in enumerate(chunks):
         node_id = _make_node_id(path, i if len(chunks) > 1 else 0)
         label = f"{path.name}"
         if len(chunks) > 1:
-            label += f" (chunk {i+1}/{len(chunks)})"
+            section = chunk_info.get("section", "")
+            label += f" ({section})" if section else f" (chunk {i+1}/{len(chunks)})"
 
         metadata = {
             "source": str(path),
@@ -304,15 +446,17 @@ def parse_document(
             "chunk_count": len(chunks),
             "ingested_at": time.time(),
             "file_size": path.stat().st_size,
+            "chapter": chunk_info.get("chapter", ""),
+            "section": chunk_info.get("section", ""),
+            "heading": chunk_info.get("heading", ""),
+            "heading_level": chunk_info.get("level", 0),
         }
-        if heading_tags:
-            metadata["tags"] = " ".join(heading_tags)
 
         node = ContentNode(
             node_id=node_id,
             label=label,
             content_type=f"document_{file_type}",
-            text=chunk,
+            text=chunk_info["text"],
             metadata=metadata,
         )
         nodes.append(node)

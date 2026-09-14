@@ -499,6 +499,10 @@ class NeuralMind:
         """
         start_time = datetime.now()
 
+        # Load .neuralmind.yaml config
+        from neuralmind.neuralmind_config import NeuralmindConfig
+        self._neuralmind_config = NeuralmindConfig.load(self.project_path)
+
         # Built-in backend: when there's no graphify output yet, generate a
         # graphify-compatible graph.json from a tree-sitter parse so that
         # `pip install neuralmind && neuralmind build` works with no separate
@@ -544,6 +548,18 @@ class NeuralMind:
         # Embed nodes
         embed_stats = self.embedder.embed_nodes(force=force)
 
+        # Detect project_kind (prose vs code) from the loaded graph
+        # before creating the selector so it can use the right strategy.
+        graph = getattr(self.embedder, "graph", None)
+        if graph:
+            self.project_kind = graph.get("project_kind", "code")
+        else:
+            self.project_kind = "code"
+
+        # If config explicitly sets mode, honor it
+        if self._neuralmind_config.mode != "auto":
+            self.project_kind = self._neuralmind_config.mode
+
         # Initialize selector. When the selector auto-tuner is enabled
         # (NEURALMIND_SELECTOR_AUTOTUNE=1), read its persisted L2 recall depth
         # from the synapse meta table once, here, and thread it through to the
@@ -555,6 +571,7 @@ class NeuralMind:
             self.embedder,
             str(self.project_path),
             l2_recall_k=self._tuned_l2_recall_k(),
+            project_kind=self.project_kind,
         )
         # Let L3 retrieval consult the live synapse graph (seed-based spread,
         # no extra embedder round trip — the seeds are hits already fetched).

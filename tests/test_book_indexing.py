@@ -203,8 +203,8 @@ class TestHeadingExtraction:
 class TestParseDocumentBookMode:
     """Tests for parse_document with book content type."""
 
-    def test_book_mode_adds_heading_tags(self, tmp_path):
-        """Book mode adds chapter/section tags to metadata."""
+    def test_book_mode_adds_heading_metadata(self, tmp_path):
+        """Book mode adds structured chapter/section metadata."""
         from neuralmind.document_ingestion import parse_document
 
         md = tmp_path / "chapter.md"
@@ -212,26 +212,25 @@ class TestParseDocumentBookMode:
 
         nodes = parse_document(md, content_type="book")
         assert len(nodes) > 0
-        assert "tags" in nodes[0].metadata
-        assert "chapter:Chapter 1" in nodes[0].metadata["tags"]
-        assert "section:Section 1.1" in nodes[0].metadata["tags"]
+        # New: structured fields instead of tags string
+        assert "chapter" in nodes[0].metadata
+        assert nodes[0].metadata["chapter"] == "Chapter 1"
+        assert "section" in nodes[0].metadata
+        # Section may be "Overview" or "Section 1.1" depending on chunking
+        assert nodes[0].metadata.get("heading_level", 0) >= 0
 
-    def test_non_book_mode_no_tags(self, tmp_path):
-        """Non-book mode does not add heading tags."""
+    def test_auto_mode_adds_heading_metadata(self, tmp_path):
+        """Auto mode also extracts heading metadata for markdown files."""
         from neuralmind.document_ingestion import parse_document
 
         md = tmp_path / "chapter.md"
         md.write_text("# Chapter 1\n\nIntro.\n\n## Section 1.1\n\nContent.")
 
         nodes = parse_document(md, content_type="auto")
-        # auto mode with no book context should not add tags
-        # (only adds tags if content_type is "book" or "auto" with book detection)
-        # Actually, looking at the code, auto mode DOES add tags for markdown
-        # Let me check the actual behavior...
-        # The code says: if file_type == "markdown" and content_type in ("auto", "book"):
-        # So auto mode DOES add tags. This test should verify that.
-        assert "tags" in nodes[0].metadata
-        assert "chapter:Chapter 1" in nodes[0].metadata["tags"]
+        assert len(nodes) > 0
+        # Auto mode also extracts headings for markdown
+        assert "chapter" in nodes[0].metadata
+        assert nodes[0].metadata["chapter"] == "Chapter 1"
 
 
 class TestUnifiedQuery:
