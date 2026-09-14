@@ -196,6 +196,48 @@ def _check_turbovec_mismatch(project_path: str) -> str | None:
         return None
 
 
+def _check_embedder_mismatch(project_path: str, embedder: str | None) -> str | None:
+    """Return a warning string if the project's ir_meta.json was built with
+    a different embedder dimensionality than the one requested.
+
+    This runs in cmd_build BEFORE the slow embed loop so the operator knows
+    a rebuild is coming and why. A mismatch means the existing TurboVec index
+    has the wrong dimensionality and must be rebuilt.
+
+    Returns None when:
+    - No embedder was explicitly requested (default is assumed)
+    - The embedder is the default (all-MiniLM-L6-v2)
+    - ir_meta.json doesn't exist (fresh build)
+    - The stored dim matches the requested embedder's dim
+    """
+    if not embedder or embedder in ("all-MiniLM-L6-v2", "minilm", "default"):
+        return None
+    ir_meta_path = Path(project_path) / ".neuralmind" / "ir_meta.json"
+    if not ir_meta_path.exists():
+        return None
+    try:
+        meta = json.loads(ir_meta_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    stored_dim = meta.get("dim")
+    if stored_dim is None:
+        return None
+    try:
+        from neuralmind.bge_embedder import embedder_dim
+
+        requested_dim = embedder_dim(embedder)
+    except (ValueError, ImportError):
+        return None
+    if int(stored_dim) != requested_dim:
+        return (
+            f"Existing index was built with dim={stored_dim}, but "
+            f"'{embedder}' requests dim={requested_dim}.\n"
+            f"Rebuild with --force required to switch embedders.\n"
+            f"Run: neuralmind build --force"
+        )
+    return None
+
+
 def _save_build_stats(project_path: str, result: dict) -> None:
     """Write build metadata to .neuralmind/build_status.json for
     `neuralmind build-status` to read without a running build.
