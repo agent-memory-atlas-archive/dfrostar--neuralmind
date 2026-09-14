@@ -269,7 +269,13 @@ class ContextSelector:
     L2_RECALL_K_MIN = 2
     L2_RECALL_K_MAX = 6
 
-    def __init__(self, embedder, project_path: str = None, l2_recall_k: int | None = None):
+    def __init__(
+        self,
+        embedder,
+        project_path: str = None,
+        l2_recall_k: int | None = None,
+        project_kind: str = "code",
+    ):
         """
         Initialize context selector.
 
@@ -281,8 +287,12 @@ class ContextSelector:
                 hard-coded L2_RECALL_K_DEFAULT is used — so a selector built
                 without the autotuner behaves exactly as before. Clamped
                 defensively to [L2_RECALL_K_MIN, L2_RECALL_K_MAX].
+            project_kind: "code" (default) or "prose". Controls retrieval
+                strategy — prose uses weighted hybrid scoring and returns
+                chapter text instead of cluster metadata.
         """
         self.embedder = embedder
+        self.project_kind = project_kind
         if l2_recall_k is None:
             self.l2_recall_k = self.L2_RECALL_K_DEFAULT
         else:
@@ -404,6 +414,88 @@ class ContextSelector:
             results.append(node)
         return results
 
+    def _weighted_hybrid_score(
+        self,
+        vec_results: list[dict[str, Any]],
+        kw_results: list[dict[str, Any]],
+        vec_weight: float = 0.7,
+        kw_weight: float = 0.3,
+    ) -> list[dict[str, Any]]:
+        """Merge vector and BM25 results via weighted score combination.
+
+        Unlike RRF (which is rank-based), this normalises BM25 scores to
+        [0, 1] and computes a weighted sum. This works better for prose
+        retrieval where absolute relevance scores carry more signal than
+        rank positions alone — a single very-relevant paragraph should
+        outrank multiple marginally-relevant ones.
+
+        Deduplicates by id; when both signals return the same node, the
+        vector score takes precedence and the BM25 score is added as
+        ``_bm25_raw`` metadata.
+
+        Returns a list sorted by ``final_score`` descending, with each
+        node carrying ``score`` (the combined score) and ``_vec_score``
+        / ``_kw_score`` for traceability.
+        """
+        if not vec_results and not kw_results:
+            return []
+
+        # Index vector results by id for O(1) lookup
+        vec_by_id: dict[str, dict[str, Any]] = {}
+        for r in vec_results:
+            nid = r.get("id", "")
+            if nid:
+                vec_by_id[nid] = r
+
+        # Normalise BM25 scores to [0, 1]
+        max_bm25 = 1.0
+        if kw_results:
+            bm25_scores = [r.get("_bm25_raw", 0.0) or r.get("score", 0.0) for r in kw_results]
+            if bm25_scores:
+                max_bm25 = max(bm25_scores) or 1.0
+
+        kw_by_id: dict[str, dict[str, Any]] = {}
+        kw_normalised: dict[str, float] = {}
+        for r in kw_results:
+            nid = r.get("id", "")
+            if not nid:
+                continue
+            raw = r.get("_bm25_raw", 0.0) or r.get("score", 0.0)
+            norm = raw / max_bm25
+            kw_by_id[nid] = r
+            kw_normalised[nid] = norm
+
+        # Combine scores for all unique ids
+        all_ids = set(vec_by_id.keys()) | set(kw_by_id.keys())
+        combined: list[tuple[str, float, dict[str, Any]]] = []
+        for nid in all_ids:
+            vec_score = vec_by_id.get(nid, {}).get("score", 0.0)
+            kw_score = kw_normalised.get(nid, 0.0)
+
+            if nid in vec_by_id and nid in kw_by_id:
+                # Both signals agree — weighted combination
+                final = vec_weight * vec_score + kw_weight * kw_score
+            elif nid in vec_by_id:
+                # Vector only — use vector score
+                final = vec_score
+            else:
+                # BM25 only — use BM25 score directly (no penalty)
+                # If vector had no match, BM25's exact-term match should win
+                final = kw_score
+
+            # Prefer the vector node as the base (it usually has richer metadata)
+            if nid in vec_by_id:
+                node = dict(vec_by_id[nid])
+            else:
+                node = dict(kw_by_id[nid])
+            node["score"] = final
+            node["_vec_score"] = vec_score
+            node["_kw_score"] = kw_score
+            combined.append((nid, final, node))
+
+        combined.sort(key=lambda x: x[1], reverse=True)
+        return [node for _, _, node in combined]
+
     def _estimate_tokens(self, text: str) -> int:
         """Estimate token count from text."""
         return len(text) // self.CHARS_PER_TOKEN
@@ -425,11 +517,14 @@ class ContextSelector:
         """Fetch search results, sharing one round trip per query.
 
         When the embedder supports BM25 and NEURALMIND_BM25 != 0, the
-        vector results are merged with keyword results via Reciprocal Rank
-        Fusion before caching — so code-specific queries like "UserService"
-        score exact-name matches above semantically similar but textually
-        distant nodes. The merge is budget-neutral: the output length is
-        capped at max(n, _query_search_max_n) unique nodes.
+        vector results are merged with keyword results. For code projects,
+        Reciprocal Rank Fusion (RRF) is used; for prose/book projects,
+        weighted hybrid scoring (70% vector, 30% BM25) with prose-friendly
+        tokenization is used — so exact-term matches in prose carry more
+        signal than rank positions alone.
+
+        The merge is budget-neutral: the output length is capped at
+        max(n, _query_search_max_n) unique nodes.
         """
         cached = self._query_search_cache.get(query)
         if cached is not None and len(cached) >= n:
@@ -437,17 +532,34 @@ class ContextSelector:
         fetch_n = max(n, self._query_search_max_n)
         vec_results = self.embedder.search(query, n=fetch_n)
 
-        # Hybrid: merge with BM25 when the backend supports it
-        bm25_search = getattr(self.embedder, "bm25_search", None)
-        if callable(bm25_search) and os.environ.get("NEURALMIND_BM25") != "0":
-            kw_results = bm25_search(query, n=fetch_n)
-            if kw_results and isinstance(kw_results, list):
-                merged = self._rrf_merge(vec_results, kw_results)
-                results = merged[:fetch_n]
+        if getattr(self, "project_kind", "code") == "prose":
+            # Prose branch: weighted hybrid scoring with prose BM25 tokenizer
+            bm25_search_prose = getattr(self.embedder, "bm25_search_prose", None)
+            if callable(bm25_search_prose) and os.environ.get("NEURALMIND_BM25") != "0":
+                kw_results = bm25_search_prose(query, n=fetch_n)
+                if kw_results and isinstance(kw_results, list):
+                    # Adaptive weights: rare terms (DF ≤ 3) boost BM25
+                    vec_weight, kw_weight = self._adaptive_weights(query)
+                    merged = self._weighted_hybrid_score(
+                        vec_results, kw_results, vec_weight=vec_weight, kw_weight=kw_weight
+                    )
+                    results = merged[:fetch_n]
+                else:
+                    results = vec_results
             else:
                 results = vec_results
         else:
-            results = vec_results
+            # Code branch: standard RRF merge (default behavior)
+            bm25_search = getattr(self.embedder, "bm25_search", None)
+            if callable(bm25_search) and os.environ.get("NEURALMIND_BM25") != "0":
+                kw_results = bm25_search(query, n=fetch_n)
+                if kw_results and isinstance(kw_results, list):
+                    merged = self._rrf_merge(vec_results, kw_results)
+                    results = merged[:fetch_n]
+                else:
+                    results = vec_results
+            else:
+                results = vec_results
 
         self._query_search_cache[query] = results
         if self._trace is not None:
@@ -1401,6 +1513,158 @@ class ContextSelector:
         context = self._truncate_to_tokens("\n".join(parts), self._l3_max_tokens)
         return context, len(results)
 
+    def _strip_frontmatter(self, text: str) -> str:
+        """Strip YAML frontmatter from text if present.
+
+        Frontmatter is the text between two ``---`` markers at the
+        start of a document.
+        """
+        if not text.startswith("---"):
+            return text
+        parts = text.split("---", 2)
+        if len(parts) >= 3:
+            return parts[2].strip()
+        return text
+
+    def _adaptive_weights(self, query: str) -> tuple[float, float]:
+        """Calculate adaptive weights for vector/BM25 combination.
+
+        Returns (vec_weight, kw_weight) tuple. When query contains rare
+        terms (DF ≤ 3), BM25 gets higher weight since exact matches are
+        strong signals. Otherwise uses default 0.4/0.6 split.
+        """
+        # Default weights: slight BM25 bias for prose
+        vec_weight = 0.4
+        kw_weight = 0.6
+
+        # Check if BM25 index has rare terms from query
+        bm25_index = getattr(self.embedder, "_bm25_cached", None)
+        if bm25_index is None:
+            bm25_index = getattr(self.embedder, "_load_bm25", lambda: None)()
+
+        if bm25_index and hasattr(bm25_index, "_df") and hasattr(bm25_index, "_tokenize"):
+            # Tokenize query using same tokenizer as BM25 index
+            q_tokens = bm25_index._tokenize(query)
+            if q_tokens:
+                # Count documents containing any query term
+                doc_count = 0
+                for token in q_tokens:
+                    doc_count += bm25_index._df.get(token, 0)
+
+                # If query terms are rare (avg DF ≤ 3), boost BM25
+                avg_df = doc_count / len(q_tokens) if q_tokens else 0
+                if avg_df <= 3:
+                    vec_weight = 0.2
+                    kw_weight = 0.8
+                elif avg_df <= 10:
+                    vec_weight = 0.3
+                    kw_weight = 0.7
+
+        return vec_weight, kw_weight
+
+    def _assemble_prose_context(self, ranked_nodes: list[dict], max_tokens: int = 800) -> str:
+        """Assemble prose context from ranked nodes (P0.3).
+
+        For each node, builds a block with chapter, section, and content
+        text. Strips YAML frontmatter from content. Accumulates blocks
+        until ``max_tokens`` is reached.
+
+        Groups consecutive nodes from same chapter/section to avoid
+        redundant headers. Each unique (chapter, section) pair gets one
+        header block.
+        """
+        blocks = []
+        tokens_used = 0
+        last_chapter = None
+        last_section = None
+
+        for node in ranked_nodes:
+            meta = node.get("metadata", {})
+            chapter = meta.get("chapter", "Unknown Chapter")
+            section = meta.get("section", "Unknown Section")
+            source_file = meta.get("source_file", node.get("source_file", ""))
+            content_text = node.get("document", "")
+
+            # Strip YAML frontmatter
+            content_text = self._strip_frontmatter(content_text)
+
+            if not content_text:
+                continue
+
+            # Build header only when chapter or section changes
+            if chapter != last_chapter or section != last_section:
+                header = f"## {chapter}\n### {section}\n\n"
+                last_chapter = chapter
+                last_section = section
+            else:
+                header = ""
+
+            block = (
+                f"{header}"
+                f"{content_text}\n\n"
+                f'— {source_file} — {chapter}, section "{section}"\n'
+            )
+            block_tokens = len(block) // self.CHARS_PER_TOKEN
+
+            if tokens_used + block_tokens > max_tokens and blocks:
+                break
+
+            blocks.append(block)
+            tokens_used += block_tokens
+
+        return "\n".join(blocks)
+
+    def _expand_cross_chapter(self, top_node: dict) -> list[dict]:
+        """Expand a top-1-hop cross-chapter node (P1.4).
+
+        After top-3 results, append 1-hop expanded results from
+        cross-chapter edges (references, related_via_terms, shared_section).
+
+        Returns a list of expanded nodes (deduplicated, capped at 5).
+        """
+        expanded = []
+        if not top_node:
+            return expanded
+
+        # Look for cross-chapter edges in the embedder's edges list
+        edges = getattr(self.embedder, "edges", None) or []
+        top_id = top_node.get("id", "")
+        if not top_id:
+            return expanded
+
+        # Find all cross-chapter edges connected to this node
+        cross_relations = {"references", "related_via_terms", "shared_section"}
+        neighbor_ids = []
+        for edge in edges:
+            if edge.get("relation") not in cross_relations:
+                continue
+            src = edge.get("source", "")
+            tgt = edge.get("target", "")
+            if src == top_id:
+                neighbor_ids.append(tgt)
+            elif tgt == top_id:
+                neighbor_ids.append(src)
+
+        if not neighbor_ids:
+            return expanded
+
+        # Fetch the neighbor nodes from the embedder
+        get_nodes_by_ids = getattr(self.embedder, "get_nodes_by_ids", None)
+        if not callable(get_nodes_by_ids):
+            return expanded
+
+        fetched = get_nodes_by_ids(neighbor_ids[:5])
+        seen_ids = {top_id}
+        for node in fetched:
+            nid = node.get("id", "")
+            if nid and nid not in seen_ids:
+                expanded.append(node)
+                seen_ids.add(nid)
+                if len(expanded) >= 5:
+                    break
+
+        return expanded
+
     def get_context(
         self,
         query: str = None,
@@ -1450,6 +1714,51 @@ class ContextSelector:
             budget.l1_summary = self._estimate_tokens(l1)
             context_parts.append(l1)
             layers_used.append("L1:Summary")
+
+        # Prose branch: return chapter text instead of L2/L3 cluster metadata.
+        # Skip L0/L1 entirely — books don't need "Code repository with semantic indexing".
+        if query and getattr(self, "project_kind", "code") == "prose":
+            ranked_nodes = self._fetch_search(query, n=10)
+
+            # P1.4: Expand with cross-chapter 1-hop results
+            # After top-3 results, append expanded cross-chapter neighbors
+            seen_ids = {n.get("id") for n in ranked_nodes}
+            cross_chapter_nodes = []
+            for top_node in ranked_nodes[:3]:
+                expanded = self._expand_cross_chapter(top_node)
+                for enode in expanded:
+                    eid = enode.get("id", "")
+                    if eid and eid not in seen_ids:
+                        cross_chapter_nodes.append(enode)
+                        seen_ids.add(eid)
+            if cross_chapter_nodes:
+                ranked_nodes = ranked_nodes + cross_chapter_nodes
+
+            prose_context = self._assemble_prose_context(
+                ranked_nodes, max_tokens=self._l3_max_tokens
+            )
+            if prose_context:
+                budget.l3_search = self._estimate_tokens(prose_context)
+                # Clear any L0/L1 that was added — prose returns ONLY chapter text
+                context_parts.clear()
+                layers_used.clear()
+                context_parts.append(prose_context)
+                layers_used.append(f"L3:Prose({len(ranked_nodes)} nodes)")
+            search_hits = len(ranked_nodes)
+
+            reduction_ratio = full_codebase_tokens / budget.total if budget.total > 0 else 0
+            top_hits: list[dict] = []
+            if ranked_nodes:
+                top_hits = list(ranked_nodes)
+            return ContextResult(
+                context="\n".join(context_parts),
+                budget=budget,
+                layers_used=layers_used,
+                communities_loaded=communities_loaded,
+                search_hits=search_hits,
+                reduction_ratio=reduction_ratio,
+                top_search_hits=top_hits,
+            )
 
         # L2: On-demand (requires query)
         if include_l2 and query:
