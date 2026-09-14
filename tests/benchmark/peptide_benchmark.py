@@ -14,20 +14,33 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-from neuralmind import core
+from neuralmind import core  # noqa: E402  (must follow sys.path bootstrap above)
 
 PEPTIDE_BOOK_DIR = Path("/home/dtfrost5/ai-agent-playbook-v2/books/peptide-patient-guide")
 QUERIES_PATH = Path(__file__).parent / "peptide_queries.json"
 RESULTS_PATH = Path(__file__).parent / "peptide_results.json"
 REPORT_PATH = Path(__file__).parent / "peptide_report.md"
 
-CHAPTER_FILES = [f"{i:02d}_{name}.md" for i, name in enumerate([
-    "what-are-peptides", "chapter-2", "fda-approved-peptides",
-    "grey-market-compounds", "safety-side-effects", "regulatory-landscape",
-    "future-of-peptide-therapy", "questions-to-ask-prescriber",
-    "conclusion", "about-the-authors", "claims-register-appendix",
-    "back-matter"
-], start=1)]
+CHAPTER_FILES = [
+    f"{i:02d}_{name}.md"
+    for i, name in enumerate(
+        [
+            "what-are-peptides",
+            "chapter-2",
+            "fda-approved-peptides",
+            "grey-market-compounds",
+            "safety-side-effects",
+            "regulatory-landscape",
+            "future-of-peptide-therapy",
+            "questions-to-ask-prescriber",
+            "conclusion",
+            "about-the-authors",
+            "claims-register-appendix",
+            "back-matter",
+        ],
+        start=1,
+    )
+]
 
 
 @dataclass
@@ -63,8 +76,8 @@ class BenchmarkResults:
 
 def extract_chapters_from_context(context_text: str) -> list[str]:
     found = []
-    for line in context_text.split('\n'):
-        matches = re.findall(r'(?:chapters/)?(\d\d_[a-z][a-z0-9_-]*\.md)', line)
+    for line in context_text.split("\n"):
+        matches = re.findall(r"(?:chapters/)?(\d\d_[a-z][a-z0-9_-]*\.md)", line)
         for m in matches:
             if m not in found and m in CHAPTER_FILES:
                 found.append(m)
@@ -73,7 +86,7 @@ def extract_chapters_from_context(context_text: str) -> list[str]:
 
 def extract_chapters_from_top_hits(ctx) -> list[str]:
     chapters = []
-    if hasattr(ctx, 'top_search_hits') and ctx.top_search_hits:
+    if hasattr(ctx, "top_search_hits") and ctx.top_search_hits:
         for hit in ctx.top_search_hits:
             meta = hit.get("metadata", {})
             source = meta.get("source_file", "")
@@ -114,8 +127,8 @@ def run_benchmark():
     total_nodes = 0
     try:
         with open(PEPTIDE_BOOK_DIR / ".neuralmind" / "index_ir.json") as f:
-            total_nodes = len(json.load(f).get('nodes', []))
-    except:
+            total_nodes = len(json.load(f).get("nodes", []))
+    except OSError:
         pass
 
     results = []
@@ -127,7 +140,7 @@ def run_benchmark():
         start = time.time()
         try:
             ctx = nm.query(q["question"])
-            context_text = ctx.context if hasattr(ctx, 'context') else str(ctx)
+            context_text = ctx.context if hasattr(ctx, "context") else str(ctx)
         except Exception as e:
             print(f"    ERROR: {e}")
             context_text = ""
@@ -141,8 +154,11 @@ def run_benchmark():
         expected = [ch for ch, grade in q["relevance_grades"].items() if grade >= 2]
 
         m = QueryMetrics(
-            id=q["id"], question=q["question"], shape=q["shape"],
-            ranked_chapters=ranked, expected_chapters=expected,
+            id=q["id"],
+            question=q["question"],
+            shape=q["shape"],
+            ranked_chapters=ranked,
+            expected_chapters=expected,
             latency_ms=latency,
         )
 
@@ -157,10 +173,13 @@ def run_benchmark():
                 m.mrr = 1.0 / rank
                 break
         if expected:
-            dcg = sum((2 ** q["relevance_grades"].get(ch, 2) - 1) / (rank + 1)
-                      for rank, ch in enumerate(ranked[:5], 1) if ch in expected)
+            dcg = sum(
+                (2 ** q["relevance_grades"].get(ch, 2) - 1) / (rank + 1)
+                for rank, ch in enumerate(ranked[:5], 1)
+                if ch in expected
+            )
             ideal = sorted([v for v in q["relevance_grades"].values() if v >= 2], reverse=True)
-            idcg = sum((2 ** r - 1) / (i + 2) for i, r in enumerate(ideal[:5]))
+            idcg = sum((2**r - 1) / (i + 2) for i, r in enumerate(ideal[:5]))
             m.ndcg_at_5 = dcg / idcg if idcg > 0 else 0.0
         m.hit_rate = 1.0 if set(ranked[:5]) & set(expected) else 0.0
         if q.get("gold_facts"):
@@ -185,7 +204,7 @@ def run_benchmark():
     }
 
     by_shape = {}
-    for shape in set(r.shape for r in results):
+    for shape in {r.shape for r in results}:
         sr = [r for r in results if r.shape == shape]
         by_shape[shape] = {
             "count": len(sr),
@@ -195,13 +214,17 @@ def run_benchmark():
         }
 
     benchmark = BenchmarkResults(
-        timestamp=time.time(), neuralmind_version="3.10.0",
-        project="peptide-patient-guide", total_nodes=total_nodes,
-        total_queries=len(queries), aggregates=agg, by_shape=by_shape,
+        timestamp=time.time(),
+        neuralmind_version="3.10.0",
+        project="peptide-patient-guide",
+        total_nodes=total_nodes,
+        total_queries=len(queries),
+        aggregates=agg,
+        by_shape=by_shape,
         queries=[asdict(r) for r in results],
     )
 
-    with open(RESULTS_PATH, 'w') as f:
+    with open(RESULTS_PATH, "w") as f:
         json.dump(asdict(benchmark), f, indent=2)
     print(f"\nResults saved to: {RESULTS_PATH}")
 
@@ -215,7 +238,7 @@ def grade(val, green=0.7, yellow=0.5):
 
 def generate_report(b: BenchmarkResults):
     a = b.aggregates
-    fp = a['total_facts_found'] / a['total_facts'] * 100 if a['total_facts'] else 0
+    fp = a["total_facts_found"] / a["total_facts"] * 100 if a["total_facts"] else 0
 
     r = f"""# NeuralMind Performance Report — Peptide Patient's Guide
 
@@ -261,7 +284,7 @@ def generate_report(b: BenchmarkResults):
 |----|-------|-----|-----|-----|-----|--------|---------|-------------|
 """
     for q in b.queries:
-        top = q['ranked_chapters'][0] if q['ranked_chapters'] else "NONE"
+        top = q["ranked_chapters"][0] if q["ranked_chapters"] else "NONE"
         r += f"| {q['id']} | {q['shape']} | {q['recall_at_1']:.2f} | {q['recall_at_3']:.2f} | {q['recall_at_5']:.2f} | {q['mrr']:.2f} | {q['ndcg_at_5']:.2f} | {q['latency_ms']:.0f}ms | {top} |\n"
 
     r += """
@@ -271,22 +294,22 @@ def generate_report(b: BenchmarkResults):
 
 ### What's Working Well
 """
-    good_r = [q for q in b.queries if q['recall_at_5'] >= 0.8]
-    good_l = [q for q in b.queries if q['latency_ms'] < 500]
+    good_r = [q for q in b.queries if q["recall_at_5"] >= 0.8]
+    good_l = [q for q in b.queries if q["latency_ms"] < 500]
     if good_r:
         r += f"- **{len(good_r)}/{b.total_queries} queries** achieve ≥80% recall@5\n"
     if good_l:
         r += f"- **{len(good_l)}/{b.total_queries} queries** complete in under 500ms\n"
-    if a['hit_rate'] >= 0.8:
+    if a["hit_rate"] >= 0.8:
         r += f"- **{a['hit_rate']:.0%} hit rate** — most queries find at least one relevant chapter\n"
 
     r += """
 ### What Needs Improvement
 """
-    bad_r = [q for q in b.queries if q['recall_at_5'] < 0.5]
-    slow = [q for q in b.queries if q['latency_ms'] > 1000]
-    zero = [q for q in b.queries if q['recall_at_5'] == 0.0]
-    low = [q for q in b.queries if len(q['ranked_chapters']) < 3]
+    bad_r = [q for q in b.queries if q["recall_at_5"] < 0.5]
+    slow = [q for q in b.queries if q["latency_ms"] > 1000]
+    zero = [q for q in b.queries if q["recall_at_5"] == 0.0]
+    low = [q for q in b.queries if len(q["ranked_chapters"]) < 3]
 
     if zero:
         r += f"- **{len(zero)} queries** returned ZERO relevant chapters: {', '.join(q['id'] for q in zero)}\n"
@@ -294,14 +317,16 @@ def generate_report(b: BenchmarkResults):
         r += f"- **{len(bad_r)} queries** have <50% recall@5\n"
     if slow:
         r += f"- **{len(slow)} queries** exceed 1 second latency\n"
-    if a['recall_at_1'] < 0.6:
+    if a["recall_at_1"] < 0.6:
         r += f"- **Recall@1 is only {a['recall_at_1']:.0%}** — the top result is often wrong\n"
     if low:
-        r += f"- **{len(low)} queries** returned fewer than 3 chapters — context may be too sparse\n"
+        r += (
+            f"- **{len(low)} queries** returned fewer than 3 chapters — context may be too sparse\n"
+        )
 
-    cross = [q for q in b.queries if q['shape'] == 'cross-chapter']
+    cross = [q for q in b.queries if q["shape"] == "cross-chapter"]
     if cross:
-        cr = sum(q['recall_at_5'] for q in cross) / len(cross)
+        cr = sum(q["recall_at_5"] for q in cross) / len(cross)
         if cr < 0.7:
             r += f"- **Cross-chapter queries underperform** ({cr:.0%} recall@5)\n"
 
@@ -361,7 +386,7 @@ NeuralMind v3.10.0 **functions** as a retrieval system but is **not optimized fo
 *Report generated by peptide_benchmark.py | NeuralMind v3.10.0*
 """
 
-    with open(REPORT_PATH, 'w') as f:
+    with open(REPORT_PATH, "w") as f:
         f.write(r)
 
 

@@ -501,6 +501,7 @@ class NeuralMind:
 
         # Load .neuralmind.yaml config
         from neuralmind.neuralmind_config import NeuralmindConfig
+
         self._neuralmind_config = NeuralmindConfig.load(self.project_path)
 
         # Built-in backend: when there's no graphify output yet, generate a

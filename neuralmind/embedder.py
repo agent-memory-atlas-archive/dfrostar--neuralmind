@@ -308,7 +308,9 @@ class GraphEmbedder(EmbeddingBackend):
             meta["chapter"] = str(node_meta.get("chapter", node.get("chapter", "")))
             meta["section"] = str(node_meta.get("section", node.get("section", "")))
             meta["heading"] = str(node_meta.get("heading", node.get("heading", "")))
-            meta["heading_level"] = int(node_meta.get("heading_level", node.get("heading_level", 0)))
+            meta["heading_level"] = int(
+                node_meta.get("heading_level", node.get("heading_level", 0))
+            )
         return meta
 
     def _content_hash(self, text: str) -> str:
@@ -661,7 +663,13 @@ class GraphEmbedder(EmbeddingBackend):
         Uses the same node set as the vector store (from get_all_nodes())
         so the BM25 and vector indexes share IDs for hybrid merge.
         """
-        nodes = self.get_all_nodes() if hasattr(self, 'get_all_nodes') else self.nodes
+        # Read from the vector store only when one is attached. A bare
+        # instance (no collection) makes get_all_nodes() return [], which
+        # would silently skip persisting the index and defeat callers that
+        # hold nodes in memory (including the redaction regression test).
+        nodes = (
+            self.get_all_nodes() if getattr(self, "collection", None) is not None else self.nodes
+        )
         if not nodes:
             return
         idx = BM25Index()
@@ -679,7 +687,7 @@ class GraphEmbedder(EmbeddingBackend):
             text = self._content_to_text(node)
             texts.append(text)
             # Use _content_node_metadata to preserve prose metadata (chapter/section)
-            if hasattr(self, '_content_node_metadata'):
+            if hasattr(self, "_content_node_metadata"):
                 metas.append(self._content_node_metadata(node))
             else:
                 metas.append(self._node_metadata(node))

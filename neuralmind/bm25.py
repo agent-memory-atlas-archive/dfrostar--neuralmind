@@ -170,7 +170,9 @@ class BM25Index:
                 dl = self._dl[i]
                 # Sublinear TF scaling: log(tf) + 1 prevents high-TF docs from dominating
                 sublinear_tf = 1 + math.log(tf) if tf > 0 else 0
-                denom = sublinear_tf + k1 * (1 - b + b * dl / avgdl) if avgdl > 0 else sublinear_tf + k1
+                denom = (
+                    sublinear_tf + k1 * (1 - b + b * dl / avgdl) if avgdl > 0 else sublinear_tf + k1
+                )
                 score = idf * sublinear_tf * (k1 + 1) / denom
                 scores[i] = scores.get(i, 0.0) + score
 
@@ -220,7 +222,9 @@ class BM25Index:
                 dl = self._dl[i]
                 # Sublinear TF scaling: log(tf) + 1 prevents high-TF docs from dominating
                 sublinear_tf = 1 + math.log(tf) if tf > 0 else 0
-                denom = sublinear_tf + k1 * (1 - b + b * dl / avgdl) if avgdl > 0 else sublinear_tf + k1
+                denom = (
+                    sublinear_tf + k1 * (1 - b + b * dl / avgdl) if avgdl > 0 else sublinear_tf + k1
+                )
                 score = idf * sublinear_tf * (k1 + 1) / denom
                 scores[i] = scores.get(i, 0.0) + score
 

@@ -269,7 +269,13 @@ class ContextSelector:
     L2_RECALL_K_MIN = 2
     L2_RECALL_K_MAX = 6
 
-    def __init__(self, embedder, project_path: str = None, l2_recall_k: int | None = None, project_kind: str = "code"):
+    def __init__(
+        self,
+        embedder,
+        project_path: str = None,
+        l2_recall_k: int | None = None,
+        project_kind: str = "code",
+    ):
         """
         Initialize context selector.
 
@@ -534,7 +540,9 @@ class ContextSelector:
                 if kw_results and isinstance(kw_results, list):
                     # Adaptive weights: rare terms (DF ≤ 3) boost BM25
                     vec_weight, kw_weight = self._adaptive_weights(query)
-                    merged = self._weighted_hybrid_score(vec_results, kw_results, vec_weight=vec_weight, kw_weight=kw_weight)
+                    merged = self._weighted_hybrid_score(
+                        vec_results, kw_results, vec_weight=vec_weight, kw_weight=kw_weight
+                    )
                     results = merged[:fetch_n]
                 else:
                     results = vec_results
@@ -1534,7 +1542,7 @@ class ContextSelector:
         if bm25_index is None:
             bm25_index = getattr(self.embedder, "_load_bm25", lambda: None)()
 
-        if bm25_index and hasattr(bm25_index, '_df') and hasattr(bm25_index, '_tokenize'):
+        if bm25_index and hasattr(bm25_index, "_df") and hasattr(bm25_index, "_tokenize"):
             # Tokenize query using same tokenizer as BM25 index
             q_tokens = bm25_index._tokenize(query)
             if q_tokens:
@@ -1585,10 +1593,7 @@ class ContextSelector:
 
             # Build header only when chapter or section changes
             if chapter != last_chapter or section != last_section:
-                header = (
-                    f"## {chapter}\n"
-                    f"### {section}\n\n"
-                )
+                header = f"## {chapter}\n### {section}\n\n"
                 last_chapter = chapter
                 last_section = section
             else:
@@ -1597,7 +1602,7 @@ class ContextSelector:
             block = (
                 f"{header}"
                 f"{content_text}\n\n"
-                f"— {source_file} — {chapter}, section \"{section}\"\n"
+                f'— {source_file} — {chapter}, section "{section}"\n'
             )
             block_tokens = len(block) // self.CHARS_PER_TOKEN
 
@@ -1729,7 +1734,9 @@ class ContextSelector:
             if cross_chapter_nodes:
                 ranked_nodes = ranked_nodes + cross_chapter_nodes
 
-            prose_context = self._assemble_prose_context(ranked_nodes, max_tokens=self._l3_max_tokens)
+            prose_context = self._assemble_prose_context(
+                ranked_nodes, max_tokens=self._l3_max_tokens
+            )
             if prose_context:
                 budget.l3_search = self._estimate_tokens(prose_context)
                 # Clear any L0/L1 that was added — prose returns ONLY chapter text

@@ -249,11 +249,17 @@ def chunk_by_heading(text: str, *, max_section_chars: int = 500) -> list[dict]:
             )
         else:
             # Fall back to overlapping chunks within this section
-            sub_chunks = _chunk_text(section_text, chunk_size=max_section_chars, overlap=CHUNK_OVERLAP)
+            sub_chunks = _chunk_text(
+                section_text, chunk_size=max_section_chars, overlap=CHUNK_OVERLAP
+            )
             for chunk_idx, chunk in enumerate(sub_chunks):
                 result.append(
                     {
-                        "heading": f"{heading_text} (part {chunk_idx + 1})" if len(sub_chunks) > 1 else heading_text,
+                        "heading": (
+                            f"{heading_text} (part {chunk_idx + 1})"
+                            if len(sub_chunks) > 1
+                            else heading_text
+                        ),
                         "level": level,
                         "content": chunk,
                         "start_line": line_idx + 1,
@@ -370,10 +376,14 @@ def parse_document(
     # two chunks and survive in halves.
     text = redact_if_enabled(text)
 
-    # Use heading-aware chunking for markdown files
-    use_heading_chunking = (
-        (file_type == "markdown" or path.suffix.lower() in (".md", ".markdown", ".mkd"))
-        and len(text) > chunk_size
+    # Use heading-aware chunking for markdown files. Small files are fine:
+    # chunk_by_heading() returns one section for short texts and sub-chunks
+    # anything longer than chunk_size, so gating on length here only lost
+    # chapter/section metadata for short documents.
+    use_heading_chunking = file_type == "markdown" or path.suffix.lower() in (
+        ".md",
+        ".markdown",
+        ".mkd",
     )
 
     if use_heading_chunking:
@@ -398,38 +408,46 @@ def parse_document(
 
             # If section is small enough, keep as one chunk
             if len(content) <= chunk_size:
-                chunks.append({
-                    "text": content,
-                    "chapter": current_chapter,
-                    "section": current_section,
-                    "heading": heading,
-                    "level": level,
-                })
+                chunks.append(
+                    {
+                        "text": content,
+                        "chapter": current_chapter,
+                        "section": current_section,
+                        "heading": heading,
+                        "level": level,
+                    }
+                )
             else:
                 # Sub-chunk large sections
                 sub_chunks = _chunk_text(content, chunk_size=chunk_size, overlap=overlap)
                 for sub_idx, sub in enumerate(sub_chunks):
-                    chunk_label = f"{heading} (part {sub_idx + 1})" if len(sub_chunks) > 1 else heading
-                    chunks.append({
-                        "text": sub,
-                        "chapter": current_chapter,
-                        "section": chunk_label,
-                        "heading": heading,
-                        "level": level,
-                    })
+                    chunk_label = (
+                        f"{heading} (part {sub_idx + 1})" if len(sub_chunks) > 1 else heading
+                    )
+                    chunks.append(
+                        {
+                            "text": sub,
+                            "chapter": current_chapter,
+                            "section": chunk_label,
+                            "heading": heading,
+                            "level": level,
+                        }
+                    )
     else:
         # For small files or non-markdown, use simple chunking
         raw_chunks = _chunk_text(text, chunk_size=chunk_size, overlap=overlap)
         chunks = []
         current_chapter = path.stem.replace("-", " ").replace("_", " ").title()
         for chunk_text in raw_chunks:
-            chunks.append({
-                "text": chunk_text,
-                "chapter": current_chapter,
-                "section": "Overview",
-                "heading": "",
-                "level": 0,
-            })
+            chunks.append(
+                {
+                    "text": chunk_text,
+                    "chapter": current_chapter,
+                    "section": "Overview",
+                    "heading": "",
+                    "level": 0,
+                }
+            )
 
     nodes = []
     for i, chunk_info in enumerate(chunks):

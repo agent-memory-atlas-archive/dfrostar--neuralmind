@@ -205,7 +205,14 @@ class TurboVecEmbedder(EmbeddingBackend):
             );
             """)
         # Additive columns for existing DBs (don't fail if already present)
-        for col, typ in [("content_category", "TEXT"), ("tags", "TEXT"), ("chapter", "TEXT"), ("section", "TEXT"), ("heading", "TEXT"), ("heading_level", "INTEGER DEFAULT 0")]:
+        for col, typ in [
+            ("content_category", "TEXT"),
+            ("tags", "TEXT"),
+            ("chapter", "TEXT"),
+            ("section", "TEXT"),
+            ("heading", "TEXT"),
+            ("heading_level", "INTEGER DEFAULT 0"),
+        ]:
             try:
                 self._conn.execute(f"ALTER TABLE nodes ADD COLUMN {col} {typ}")
             except Exception:
@@ -795,11 +802,7 @@ class TurboVecEmbedder(EmbeddingBackend):
                 # For prose nodes, use content_text as the embedding text;
                 # for code nodes, use the standard node-to-text conversion.
                 raw_content_text = node.get("content_text", "")
-                text = (
-                    raw_content_text
-                    if raw_content_text
-                    else self._node_to_text(node)
-                )
+                text = raw_content_text if raw_content_text else self._node_to_text(node)
                 content_hash = self._content_hash(text)
                 row = self._conn.execute(
                     "SELECT uid, content_hash, content_category FROM nodes WHERE node_id = ?",
@@ -837,9 +840,7 @@ class TurboVecEmbedder(EmbeddingBackend):
                         }
                     )
 
-                pending.append(
-                    (node_id, uid, text, meta, content_hash, is_update, prose_meta)
-                )
+                pending.append((node_id, uid, text, meta, content_hash, is_update, prose_meta))
                 bar.advance(detail=node_id[:40])
 
         if not pending:
@@ -1003,6 +1004,7 @@ class TurboVecEmbedder(EmbeddingBackend):
             if prose_meta_raw:
                 try:
                     import json as _json
+
                     prose_meta = _json.loads(prose_meta_raw)
                     meta["chapter"] = prose_meta.get("chapter", "")
                     meta["section"] = prose_meta.get("section", "")
@@ -1189,12 +1191,14 @@ class TurboVecEmbedder(EmbeddingBackend):
 
         # Use prose tokenizer for prose/book projects (when chapter column exists)
         from .bm25 import _tokenize_prose
+
         tokenizer = _tokenize_prose if prose_cols else None
         idx = BM25Index(tokenizer=tokenizer)
         idx.add_documents(ids, texts, metas)
         idx.build()
         idx.save(self._bm25_path)
         self._bm25_cached = idx
+
     def bm25_search(self, query: str, n: int = 10) -> list[dict[str, Any]]:
         """BM25 keyword search — same result shape as search().
 
