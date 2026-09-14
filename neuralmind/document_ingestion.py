@@ -397,7 +397,22 @@ def parse_document(
             level = section.get("level", 0)
             content = section.get("content", "")
 
-            if not content.strip():
+            # chunk_by_heading strips the heading line from the section body;
+            # put it back so the node text carries its own title (retrieval,
+            # BM25, and the document_text contract all expect the heading in
+            # the text). Heading-only sections (a title with no body) still
+            # yield a node instead of silently vanishing — silently dropping
+            # them made heading-only documents fail with "No content
+            # extracted" and a CLI exit(1).
+            if heading:
+                heading_line = f"{'#' * (level or 1)} {heading}"
+                section_text = (
+                    f"{heading_line}\n\n{content}".strip() if content.strip() else heading_line
+                )
+            else:
+                section_text = content
+
+            if not section_text.strip():
                 continue
 
             if level == 1:
@@ -407,10 +422,10 @@ def parse_document(
                 current_section = heading
 
             # If section is small enough, keep as one chunk
-            if len(content) <= chunk_size:
+            if len(section_text) <= chunk_size:
                 chunks.append(
                     {
-                        "text": content,
+                        "text": section_text,
                         "chapter": current_chapter,
                         "section": current_section,
                         "heading": heading,
@@ -418,8 +433,10 @@ def parse_document(
                     }
                 )
             else:
-                # Sub-chunk large sections
-                sub_chunks = _chunk_text(content, chunk_size=chunk_size, overlap=overlap)
+                # Sub-chunk large sections (chunk the heading + body text so
+                # the first part carries the title, matching the pre-heading-
+                # chunking contract of storing original document text)
+                sub_chunks = _chunk_text(section_text, chunk_size=chunk_size, overlap=overlap)
                 for sub_idx, sub in enumerate(sub_chunks):
                     chunk_label = (
                         f"{heading} (part {sub_idx + 1})" if len(sub_chunks) > 1 else heading
