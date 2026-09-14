@@ -406,11 +406,15 @@ def parse_document(
             elif level == 2:
                 current_section = heading
 
+            # Include heading in chunk text for better BM25 matching
+            heading_prefix = f"{heading}\n" if heading else ""
+            chunk_text = f"{heading_prefix}{content}"
+
             # If section is small enough, keep as one chunk
             if len(content) <= chunk_size:
                 chunks.append(
                     {
-                        "text": content,
+                        "text": chunk_text,
                         "chapter": current_chapter,
                         "section": current_section,
                         "heading": heading,
@@ -421,12 +425,13 @@ def parse_document(
                 # Sub-chunk large sections
                 sub_chunks = _chunk_text(content, chunk_size=chunk_size, overlap=overlap)
                 for sub_idx, sub in enumerate(sub_chunks):
+                    sub_with_heading = f"{heading}\n{sub}" if heading else sub
                     chunk_label = (
                         f"{heading} (part {sub_idx + 1})" if len(sub_chunks) > 1 else heading
                     )
                     chunks.append(
                         {
-                            "text": sub,
+                            "text": sub_with_heading,
                             "chapter": current_chapter,
                             "section": chunk_label,
                             "heading": heading,
