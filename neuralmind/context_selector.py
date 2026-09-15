@@ -543,6 +543,9 @@ class ContextSelector:
                     merged = self._weighted_hybrid_score(
                         vec_results, kw_results, vec_weight=vec_weight, kw_weight=kw_weight
                     )
+                    # Apply query intent boost (1.3× for matching chapters)
+                    query_intent = self._detect_query_intent(query)
+                    merged = self._apply_intent_boost(merged, query_intent)
                     results = merged[:fetch_n]
                 else:
                     results = vec_results
@@ -1561,6 +1564,89 @@ class ContextSelector:
                     kw_weight = 0.7
 
         return vec_weight, kw_weight
+
+    # Query intent keywords for prose/book projects
+    _INTENT_KEYWORDS: dict[str, list[str]] = {
+        "mechanism": ["how does", "mechanism", "work", "function", "action", "pathway", "receptor", "bind", "signal"],
+        "comparison": ["difference", "compare", "versus", "vs", "differ", "better", "worse", "efficacy"],
+        "regulatory": ["fda", "approval", "regulatory", "pcac", "compliance", "legal", "law", "rule"],
+        "delivery": ["oral", "delivery", "injection", "subcutaneous", "nasal", "topical", "route"],
+        "safety": ["side effect", "risk", "warning", "adverse", "contraindication", "toxicity", "danger"],
+        "cost": ["cost", "price", "expensive", "cheap", "afford", "insurance", "coverage"],
+        "future": ["future", "pipeline", "coming", "next", "upcoming", "research", "trial"],
+        "definition": ["what is", "what are", "define", "definition", "meaning", "explain"],
+    }
+
+    # Chapter intent mapping for peptide book (source_file prefix → intents)
+    _CHAPTER_INTENTS: dict[str, list[str]] = {
+        "01_what-are-peptides": ["definition", "mechanism"],
+        "02_chapter-2": ["mechanism", "delivery"],
+        "03_fda-approved-peptides": ["comparison", "regulatory", "mechanism"],
+        "04_grey-market-compounds": ["regulatory", "safety"],
+        "05_safety-side-effects": ["safety"],
+        "06_regulatory-landscape": ["regulatory"],
+        "07_future-of-peptide-therapy": ["future", "comparison"],
+        "08_questions-to-ask-prescriber": ["definition"],
+        "98_claims-register-appendix": [],
+        "99_back-matter": ["definition"],
+        "00_front-matter": ["definition"],
+    }
+
+    def _detect_query_intent(self, query: str) -> list[str]:
+        """Detect query intent from keywords.
+
+        Returns list of intent categories sorted by relevance.
+        """
+        query_lower = query.lower()
+        scores: dict[str, int] = {}
+        for intent, keywords in self._INTENT_KEYWORDS.items():
+            score = sum(1 for kw in keywords if kw in query_lower)
+            if score > 0:
+                scores[intent] = score
+        # Sort by score descending
+        return sorted(scores.keys(), key=lambda x: scores[x], reverse=True)
+
+    def _apply_intent_boost(
+        self,
+        results: list[dict[str, Any]],
+        query_intent: list[str],
+    ) -> list[dict[str, Any]]:
+        """Apply intent-based chapter boost to ranked results.
+
+        For each result, checks if the source chapter's intent matches
+        the query intent. If so, boosts the score by 1.3×.
+        """
+        if not query_intent:
+            return results
+
+        primary_intent = query_intent[0]  # Top intent only
+        boosted = []
+        for r in results:
+            meta = r.get("metadata", {})
+            source_file = meta.get("source_file", "")
+            # Extract chapter prefix (e.g., "01_what-are-peptides")
+            chapter_prefix = ""
+            if source_file:
+                # Handle both full paths and bare filenames
+                basename = source_file.split("/")[-1] if "/" in source_file else source_file
+                # Extract NN_name pattern
+                import re
+                m = re.match(r"(\d{2}_[a-z][a-z0-9_-]+)", basename)
+                if m:
+                    chapter_prefix = m.group(1)
+
+            # Check if chapter's intent matches query intent
+            chapter_intents = self._CHAPTER_INTENTS.get(chapter_prefix, [])
+            if primary_intent in chapter_intents:
+                r = dict(r)
+                r["score"] = r.get("score", 0.0) * 1.3
+                r["_intent_boost"] = primary_intent
+
+            boosted.append(r)
+
+        # Re-sort by boosted scores
+        boosted.sort(key=lambda x: x.get("score", 0.0), reverse=True)
+        return boosted
 
     def _assemble_prose_context(self, ranked_nodes: list[dict], max_tokens: int = 800) -> str:
         """Assemble prose context from ranked nodes (P0.3).
