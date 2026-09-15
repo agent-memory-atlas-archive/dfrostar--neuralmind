@@ -22,24 +22,17 @@ RESULTS_PATH = Path(__file__).parent / "peptide_results.json"
 REPORT_PATH = Path(__file__).parent / "peptide_report.md"
 
 CHAPTER_FILES = [
-    f"{i:02d}_{name}.md"
-    for i, name in enumerate(
-        [
-            "what-are-peptides",
-            "chapter-2",
-            "fda-approved-peptides",
-            "grey-market-compounds",
-            "safety-side-effects",
-            "regulatory-landscape",
-            "future-of-peptide-therapy",
-            "questions-to-ask-prescriber",
-            "conclusion",
-            "about-the-authors",
-            "claims-register-appendix",
-            "back-matter",
-        ],
-        start=1,
-    )
+    "00_front-matter.md",
+    "01_what-are-peptides.md",
+    "02_chapter-2.md",
+    "03_fda-approved-peptides.md",
+    "04_grey-market-compounds.md",
+    "05_safety-side-effects.md",
+    "06_regulatory-landscape.md",
+    "07_future-of-peptide-therapy.md",
+    "08_questions-to-ask-prescriber.md",
+    "98_claims-register-appendix.md",
+    "99_back-matter.md",
 ]
 
 

@@ -586,9 +586,18 @@ class ContextSelector:
                     merged = self._weighted_hybrid_score(
                         vec_results, kw_results, vec_weight=vec_weight, kw_weight=kw_weight
                     )
-                    # Apply prose intent boost (1.3× for matching chapters)
+                    # Apply prose intent boost (1.5× primary, 1.25× secondary)
                     intents = self._detect_prose_intent(query)
                     merged = self._apply_prose_intent_boost(merged, intents)
+
+                    # Post-retrieval filtering: drop low-confidence results.
+                    # Uses a relative threshold (30% of top score) — conservative
+                    # so we don't eliminate relevant chapters on small indexes.
+                    if merged:
+                        top_score = merged[0].get("score", 1.0)
+                        cutoff = top_score * 0.3
+                        merged = [n for n in merged if n.get("score", 0.0) >= cutoff]
+
                     results = merged[:fetch_n]
                 else:
                     results = vec_results
@@ -1677,19 +1686,19 @@ class ContextSelector:
         "definition": ["what is", "what are", "define", "definition", "meaning", "explain"],
     }
 
-    # Chapter intent mapping for peptide book
-    _PROSE_CHAPTER_INTENTS: dict[str, list[str]] = {
-        "01_what-are-peptides": ["definition", "mechanism"],
-        "02_chapter-2": ["mechanism", "delivery"],
-        "03_fda-approved-peptides": ["comparison", "regulatory", "mechanism"],
-        "04_grey-market-compounds": ["regulatory", "safety"],
-        "05_safety-side-effects": ["safety"],
-        "06_regulatory-landscape": ["regulatory"],
-        "07_future-of-peptide-therapy": ["future", "comparison"],
-        "08_questions-to-ask-prescriber": ["definition"],
-        "98_claims-register-appendix": [],
-        "99_back-matter": ["definition"],
-        "00_front-matter": ["definition"],
+    # Chapter intent mapping for peptide book with weights per intent
+    _PROSE_CHAPTER_INTENT_WEIGHTS: dict[str, dict[str, float]] = {
+        "01_what-are-peptides": {"definition": 1.0, "mechanism": 0.5},
+        "02_chapter-2": {"mechanism": 1.0, "delivery": 1.0},
+        "03_fda-approved-peptides": {"comparison": 1.0, "regulatory": 1.0, "mechanism": 0.5},
+        "04_grey-market-compounds": {"regulatory": 1.0, "safety": 0.8},
+        "05_safety-side-effects": {"safety": 1.0},
+        "06_regulatory-landscape": {"regulatory": 1.0},
+        "07_future-of-peptide-therapy": {"future": 1.0, "comparison": 0.7},
+        "08_questions-to-ask-prescriber": {"definition": 1.0},
+        "98_claims-register-appendix": {},
+        "99_back-matter": {"definition": 1.0},
+        "00_front-matter": {"definition": 1.0},
     }
 
     def _detect_prose_intent(self, query: str) -> list[str]:
@@ -1744,20 +1753,24 @@ class ContextSelector:
     ) -> list[dict[str, Any]]:
         """Boost results whose chapter intent matches the query intent.
 
-        Factor 1.3× for the top matching intent only.
+        Uses weighted chapter-intent mapping. Primary intent (first in list)
+        gets 2.0× boost for matching chapters; secondary intents get 1.5×.
+        This is stronger than the previous 1.3× flat boost — the extra
+        signal is needed to push correct chapters above marginal matches.
         """
         if not intents:
             return results
+
         primary = intents[0]
+        secondary = intents[1:] if len(intents) > 1 else []
+
         boosted = []
         for r in results:
             meta = r.get("metadata", {})
             sf = meta.get("source_file", "")
             base = sf.split("/")[-1] if "/" in sf else sf
-            # Extract chapter prefix (e.g., "01_what-are-peptides")
             prefix = ""
             if base:
-                # Find first 2 digits + underscore
                 for i in range(len(base) - 2):
                     if base[i : i + 2].isdigit() and base[i + 2] == "_":
                         end = i + 3
@@ -1765,11 +1778,25 @@ class ContextSelector:
                             end += 1
                         prefix = base[i:end]
                         break
-            if primary in self._PROSE_CHAPTER_INTENTS.get(prefix, []):
+
+            chapter_weights = self._PROSE_CHAPTER_INTENT_WEIGHTS.get(prefix, {})
+            boost = 1.0
+            applied = None
+            if primary in chapter_weights:
+                boost = 2.0
+                applied = primary
+            elif any(si in chapter_weights for si in secondary):
+                boost = 1.5
+                applied = next((si for si in secondary if si in chapter_weights), None)
+
+            if boost > 1.0:
                 r = dict(r)
-                r["score"] = r.get("score", 0.0) * 1.3
-                r["_prose_intent"] = primary
+                r["score"] = r.get("score", 0.0) * boost
+                if applied:
+                    r["_prose_intent"] = applied
+
             boosted.append(r)
+
         boosted.sort(key=lambda x: x.get("score", 0.0), reverse=True)
         return boosted
 

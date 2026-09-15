@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "description": "Peptide Patient's Guide — Retrieval Quality Benchmark. Queries test NeuralMind's ability to find the right chapter/section for patient-facing questions about peptide therapy.",
+  "version": 2,
+  "description": "Peptide Patient's Guide v5 — Retrieval Quality Benchmark. Queries test NeuralMind's ability to find the right chapter/section for patient-facing questions about peptide therapy. Updated for Rye Walker's v5 edits (2026-09-14).",
   "queries": [
     {
       "id": "peptide-definition",
@@ -16,12 +16,12 @@
         "07_future-of-peptide-therapy.md": 0,
         "08_questions-to-ask-prescriber.md": 0,
         "00_front-matter.md": 0,
-        "90_conclusion.md": 0
+        "99_back-matter.md": 1
       },
       "gold_facts": [
         "A peptide is a chain of 2-50 amino acids",
-        "Proteins are chains of 50+ amino acids",
-        "Peptides serve as signaling molecules",
+        "Proteins are chains of 50 or more amino acids",
+        "Peptides serve as signaling molecules (cellular messengers)",
         "Insulin, oxytocin, and glucagon are examples of peptide hormones"
       ]
     },
@@ -39,19 +39,110 @@
         "07_future-of-peptide-therapy.md": 1,
         "08_questions-to-ask-prescriber.md": 0,
         "00_front-matter.md": 0,
-        "90_conclusion.md": 0
+        "99_back-matter.md": 1
       },
       "gold_facts": [
         "Semaglutide is a GLP-1 receptor agonist",
-        "It mimics the natural hormone GLP-1 produced in the gut",
+        "It mimics the natural hormone GLP-1 produced in the gut after eating",
         "It stimulates insulin secretion from the pancreas",
-        "It slows gastric emptying and reduces appetite",
-        "Natural GLP-1 has a 2-minute half-life; semaglutide lasts about a week"
+        "It slows gastric emptying and reduces appetite signals from the brain"
       ]
     },
     {
-      "id": "bpc157-mechanism",
-      "question": "How does BPC-157 work and what is its mechanism of action?",
+      "id": "fda-approval-meaning",
+      "question": "What does FDA approval mean for a peptide?",
+      "shape": "focused",
+      "relevance_grades": {
+        "01_what-are-peptides.md": 0,
+        "02_chapter-2.md": 0,
+        "03_fda-approved-peptides.md": 3,
+        "04_grey-market-compounds.md": 0,
+        "05_safety-side-effects.md": 0,
+        "06_regulatory-landscape.md": 2,
+        "07_future-of-peptide-therapy.md": 0,
+        "08_questions-to-ask-prescriber.md": 2,
+        "00_front-matter.md": 0,
+        "99_back-matter.md": 0
+      },
+      "gold_facts": [
+        "FDA approval means the drug completed all three phases of clinical trials",
+        "Phase 1 tests safety, Phase 2 tests dosing, Phase 3 tests efficacy in thousands of patients",
+        "The drug received a New Drug Application (NDA) or Abbreviated New Drug Application (ANDA) number",
+        "This is the highest standard of evidence a medication can achieve"
+      ]
+    },
+    {
+      "id": "pcac-recommendation",
+      "question": "What is the difference between FDA approval and PCAC recommendation?",
+      "shape": "cross-chapter",
+      "relevance_grades": {
+        "01_what-are-peptides.md": 0,
+        "02_chapter-2.md": 0,
+        "03_fda-approved-peptides.md": 1,
+        "04_grey-market-compounds.md": 3,
+        "05_safety-side-effects.md": 0,
+        "06_regulatory-landscape.md": 3,
+        "07_future-of-peptide-therapy.md": 1,
+        "08_questions-to-ask-prescriber.md": 0,
+        "00_front-matter.md": 0,
+        "99_back-matter.md": 0
+      },
+      "gold_facts": [
+        "PCAC is an advisory body whose recommendations are non-binding to the FDA",
+        "PCAC voted to recommend 6 peptides for compounding in July 2026",
+        "Emideltide (DSIP) was rejected by PCAC",
+        "FDA retains final decision authority and has not yet acted on these recommendations"
+      ]
+    },
+    {
+      "id": "weight-loss-semaglutide",
+      "question": "How much weight loss can you expect from semaglutide?",
+      "shape": "focused",
+      "relevance_grades": {
+        "01_what-are-peptides.md": 0,
+        "02_chapter-2.md": 0,
+        "03_fda-approved-peptides.md": 3,
+        "04_grey-market-compounds.md": 0,
+        "05_safety-side-effects.md": 0,
+        "06_regulatory-landscape.md": 0,
+        "07_future-of-peptide-therapy.md": 1,
+        "08_questions-to-ask-prescriber.md": 0,
+        "00_front-matter.md": 0,
+        "99_back-matter.md": 0
+      },
+      "gold_facts": [
+        "Semaglutide 2.4 mg once weekly achieved 14.9% mean weight loss at 68 weeks in STEP 1",
+        "In the SELECT trial, semaglutide reduced major adverse cardiovascular events by 20% vs placebo",
+        "Participants who stopped semaglutide regained roughly two-thirds of lost weight within a year"
+      ]
+    },
+    {
+      "id": "retatrutide-triple-agonist",
+      "question": "What is retatrutide and how does it differ from semaglutide?",
+      "shape": "focused",
+      "relevance_grades": {
+        "01_what-are-peptides.md": 0,
+        "02_chapter-2.md": 0,
+        "03_fda-approved-peptides.md": 3,
+        "04_grey-market-compounds.md": 0,
+        "05_safety-side-effects.md": 0,
+        "06_regulatory-landscape.md": 0,
+        "07_future-of-peptide-therapy.md": 3,
+        "08_questions-to-ask-prescriber.md": 0,
+        "00_front-matter.md": 0,
+        "99_back-matter.md": 0
+      },
+      "gold_facts": [
+        "Retatrutide is a triple agonist targeting GIP, GLP-1, and glucagon receptors",
+        "It is NOT yet FDA-approved as of mid-2026",
+        "Phase 3 trials are ongoing",
+        "It achieved up to 24.2% weight loss in Phase 2 trials at 48 weeks",
+        "Semaglutide targets only GLP-1; retatrutide targets three pathways"
+      ]
+    },
+    {
+      "id": "bpc157-grey-market",
+      "question": "What is BPC-157 and why is it controversial?",
       "shape": "focused",
       "relevance_grades": {
         "01_what-are-peptides.md": 0,
@@ -63,85 +154,83 @@
         "07_future-of-peptide-therapy.md": 0,
         "08_questions-to-ask-prescriber.md": 0,
         "00_front-matter.md": 0,
-        "90_conclusion.md": 0
+        "99_back-matter.md": 0
       },
       "gold_facts": [
-        "BPC-157 is a synthetic peptide derived from a protein in human gastric juice",
-        "It acts on multiple pathways — angiogenesis, cell migration, anti-inflammatory",
-        "The VEGFR2-Akt-eNOS pathway is the most consistently studied",
+        "BPC-157 is NOT FDA-approved and is sold as a research chemical",
         "It has no single established receptor in humans",
-        "Evidence is primarily from animal models with no human RCTs"
+        "Evidence is primarily from animal models with no human RCTs",
+        "Theoretical concern about blood vessel growth and cancer risk"
       ]
     },
     {
-      "id": "fda-vs-pcac",
-      "question": "What is the difference between FDA approval and PCAC recommendation for peptides?",
-      "shape": "cross-chapter",
+      "id": "black-box-warning-thyroid",
+      "question": "What is the black box warning on semaglutide about?",
+      "shape": "focused",
       "relevance_grades": {
         "01_what-are-peptides.md": 0,
         "02_chapter-2.md": 0,
         "03_fda-approved-peptides.md": 2,
-        "04_grey-market-compounds.md": 2,
-        "05_safety-side-effects.md": 0,
-        "06_regulatory-landscape.md": 3,
-        "07_future-of-peptide-therapy.md": 2,
-        "08_questions-to-ask-prescriber.md": 1,
+        "04_grey-market-compounds.md": 0,
+        "05_safety-side-effects.md": 3,
+        "06_regulatory-landscape.md": 0,
+        "07_future-of-peptide-therapy.md": 0,
+        "08_questions-to-ask-prescriber.md": 0,
         "00_front-matter.md": 0,
-        "90_conclusion.md": 0
+        "99_back-matter.md": 0
       },
       "gold_facts": [
-        "FDA approval requires Phase 1-3 clinical trials and an NDA/ANDA",
-        "PCAC only recommends whether a substance can be used by compounding pharmacies",
-        "PCAC inclusion on the 503A Bulks List is NOT FDA drug approval",
-        "PCAC voted to recommend 6 peptides for compounding in July 2026",
-        "Emideltide was rejected by PCAC"
+        "Semaglutide carries a black box warning for thyroid C-cell tumors",
+        "Rodent studies showed increased risk of these tumors",
+        "Human risk has not been established",
+        "Rodents have a higher density of GLP-1 receptors in their thyroid tissue than humans"
       ]
     },
     {
-      "id": "weight-loss-results",
-      "question": "How much weight loss can you expect from semaglutide and tirzepatide?",
+      "id": "tirzepatide-dual-agonist",
+      "question": "What is tirzepatide and how does it differ from semaglutide?",
       "shape": "focused",
       "relevance_grades": {
         "01_what-are-peptides.md": 0,
         "02_chapter-2.md": 0,
         "03_fda-approved-peptides.md": 3,
         "04_grey-market-compounds.md": 0,
-        "05_safety-side-effects.md": 1,
+        "05_safety-side-effects.md": 0,
         "06_regulatory-landscape.md": 0,
         "07_future-of-peptide-therapy.md": 2,
         "08_questions-to-ask-prescriber.md": 0,
         "00_front-matter.md": 0,
-        "90_conclusion.md": 0
+        "99_back-matter.md": 0
       },
       "gold_facts": [
-        "Semaglutide produced 14.9% average weight loss in STEP 1 trial over 68 weeks",
-        "Tirzepatide demonstrated superior weight loss compared to semaglutide in a 2025 NEJM trial",
-        "Retatrutide achieved up to 24.2% weight loss in Phase 2 at 48 weeks",
-        "Participants who stopped semaglutide regained roughly two-thirds of lost weight within a year"
+        "Tirzepatide is a dual GIP/GLP-1 receptor agonist",
+        "Semaglutide is a single GLP-1 receptor agonist",
+        "Tirzepatide targets two gut hormones simultaneously",
+        "In a 2025 NEJM trial, tirzepatide demonstrated superior weight loss compared to semaglutide",
+        "Tirzepatide is approved as Mounjaro for diabetes and Zepbound for obesity"
       ]
     },
     {
-      "id": "peptide-half-lives",
-      "question": "Why are most peptides injected instead of taken as pills?",
+      "id": "oral-peptide-delivery",
+      "question": "Will there be oral peptide options in the future?",
       "shape": "focused",
       "relevance_grades": {
-        "01_what-are-peptides.md": 1,
-        "02_chapter-2.md": 3,
+        "01_what-are-peptides.md": 0,
+        "02_chapter-2.md": 2,
         "03_fda-approved-peptides.md": 0,
         "04_grey-market-compounds.md": 0,
         "05_safety-side-effects.md": 0,
         "06_regulatory-landscape.md": 0,
-        "07_future-of-peptide-therapy.md": 1,
+        "07_future-of-peptide-therapy.md": 3,
         "08_questions-to-ask-prescriber.md": 0,
         "00_front-matter.md": 0,
-        "90_conclusion.md": 0
+        "99_back-matter.md": 0
       },
       "gold_facts": [
-        "Stomach acid and digestive enzymes break down peptides",
-        "The digestive system is designed to dismantle proteins into amino acids",
-        "Subcutaneous injection bypasses the digestive tract",
-        "Oral semaglutide requires a special absorption enhancer",
-        "Native GLP-1 has a half-life of about 2 minutes"
+        "An oral form of semaglutide already exists using absorption enhancer technology",
+        "The absorption enhancer temporarily opens the intestinal lining so the peptide can slip through",
+        "Oral semaglutide has lower bioavailability than the injectable form",
+        "Researchers are exploring oral formulations for more peptides"
       ]
     },
     {
@@ -158,88 +247,40 @@
         "07_future-of-peptide-therapy.md": 0,
         "08_questions-to-ask-prescriber.md": 0,
         "00_front-matter.md": 0,
-        "90_conclusion.md": 0
+        "99_back-matter.md": 0
       },
       "gold_facts": [
         "Research chemical sites label products 'Not for human consumption' to bypass FDA oversight",
         "No guarantee of purity, sterility, or accurate dosing",
         "Products may contain bacterial contamination, heavy metals, or completely different compounds",
-        "503A pharmacies at least operate under state board oversight",
-        "Compounding from unregulated sources means you are your own clinical trial"
+        "503A pharmacies at least operate under state board oversight"
       ]
     },
     {
-      "id": "black-box-warning",
-      "question": "What is the black box warning on semaglutide about?",
+      "id": "peptide-stability-refrigeration",
+      "question": "Why do some peptide medications require refrigeration?",
       "shape": "focused",
       "relevance_grades": {
         "01_what-are-peptides.md": 0,
-        "02_chapter-2.md": 0,
-        "03_fda-approved-peptides.md": 2,
-        "04_grey-market-compounds.md": 0,
-        "05_safety-side-effects.md": 3,
-        "06_regulatory-landscape.md": 0,
-        "07_future-of-peptide-therapy.md": 0,
-        "08_questions-to-ask-prescriber.md": 0,
-        "00_front-matter.md": 0,
-        "90_conclusion.md": 0
-      },
-      "gold_facts": [
-        "Semaglutide carries a black box warning for thyroid C-cell tumors",
-        "Rodent studies showed increased risk of these tumors",
-        "Human risk has not been established",
-        "People with family history of medullary thyroid carcinoma should not take GLP-1 agonists",
-        "Multiple Endocrine Neoplasia syndrome type 2 is a contraindication"
-      ]
-    },
-    {
-      "id": "oral-peptide-future",
-      "question": "Will there be oral peptide options in the future?",
-      "shape": "focused",
-      "relevance_grades": {
-        "01_what-are-peptides.md": 0,
-        "02_chapter-2.md": 1,
+        "02_chapter-2.md": 3,
         "03_fda-approved-peptides.md": 0,
         "04_grey-market-compounds.md": 0,
         "05_safety-side-effects.md": 0,
         "06_regulatory-landscape.md": 0,
-        "07_future-of-peptide-therapy.md": 3,
-        "08_questions-to-ask-prescriber.md": 0,
-        "00_front-matter.md": 0,
-        "90_conclusion.md": 0
-      },
-      "gold_facts": [
-        "Oral semaglutide already exists using absorption enhancer technology",
-        "Researchers are exploring oral formulations for peptides previously thought impossible to deliver without injection",
-        "The future of peptide therapy will likely involve wider oral options",
-        "Nasal delivery can work for peptides targeting the brain via olfactory nerve pathways"
-      ]
-    },
-    {
-      "id": "cardiovascular-benefits",
-      "question": "Does semaglutide help with heart disease?",
-      "shape": "focused",
-      "relevance_grades": {
-        "01_what-are-peptides.md": 0,
-        "02_chapter-2.md": 0,
-        "03_fda-approved-peptides.md": 3,
-        "04_grey-market-compounds.md": 0,
-        "05_safety-side-effects.md": 1,
-        "06_regulatory-landscape.md": 0,
         "07_future-of-peptide-therapy.md": 0,
-        "08_questions-to-ask-prescriber.md": 0,
+        "08_questions-to-ask-prescriber.md": 1,
         "00_front-matter.md": 0,
-        "90_conclusion.md": 0
+        "99_back-matter.md": 0
       },
       "gold_facts": [
-        "The SELECT trial followed over 17,000 adults with overweight/obesity and pre-existing cardiovascular disease",
-        "Semaglutide reduced major adverse cardiovascular events by 20% compared to placebo",
-        "It was the first peptide therapy shown to actively protect the cardiovascular system",
-        "It reduced risk of heart attacks and strokes"
+        "Peptides are inherently fragile molecules",
+        "Unlike small-molecule drugs like ibuprofen, peptides have bonds designed to be broken down",
+        "Exposure to heat or repeated freeze-thaw cycles can degrade peptides",
+        "A vial left in a hot car may contain biologically inert degraded fragments"
       ]
     },
     {
-      "id": "questions-to-ask-doctor",
+      "id": "questions-to-ask-prescriber",
       "question": "What should I ask my doctor before starting peptide therapy?",
       "shape": "focused",
       "relevance_grades": {
@@ -252,7 +293,7 @@
         "07_future-of-peptide-therapy.md": 1,
         "08_questions-to-ask-prescriber.md": 3,
         "00_front-matter.md": 0,
-        "90_conclusion.md": 0
+        "99_back-matter.md": 0
       },
       "gold_facts": [
         "Ask if the peptide is FDA-approved for your specific condition or off-label",
@@ -262,191 +303,26 @@
       ]
     },
     {
-      "id": "side-effect-rates",
-      "question": "What percentage of patients experience nausea on semaglutide?",
+      "id": "book-authors",
+      "question": "Who are the authors of this book?",
       "shape": "identity",
       "relevance_grades": {
         "01_what-are-peptides.md": 0,
         "02_chapter-2.md": 0,
-        "03_fda-approved-peptides.md": 2,
-        "04_grey-market-compounds.md": 0,
-        "05_safety-side-effects.md": 3,
-        "06_regulatory-landscape.md": 0,
-        "07_future-of-peptide-therapy.md": 0,
-        "08_questions-to-ask-prescriber.md": 0,
-        "00_front-matter.md": 0,
-        "90_conclusion.md": 0
-      },
-      "gold_facts": [
-        "Nausea affects about 44% of patients",
-        "Vomiting affects 24% of patients",
-        "Diarrhea affects 30% of patients",
-        "Side effects are most pronounced when starting or increasing dose"
-      ]
-    },
-    {
-      "id": "retatrutide-status",
-      "question": "Is retatrutide FDA approved?",
-      "shape": "identity",
-      "relevance_grades": {
-        "01_what-are-peptides.md": 0,
-        "02_chapter-2.md": 0,
-        "03_fda-approved-peptides.md": 1,
-        "04_grey-market-compounds.md": 0,
-        "05_safety-side-effects.md": 0,
-        "06_regulatory-landscape.md": 0,
-        "07_future-of-peptide-therapy.md": 3,
-        "08_questions-to-ask-prescriber.md": 0,
-        "00_front-matter.md": 0,
-        "90_conclusion.md": 0
-      },
-      "gold_facts": [
-        "Retatrutide is not FDA-approved as of mid-2026",
-        "It is a triple agonist targeting GIP, GLP-1, and glucagon receptors",
-        "Phase 3 trials are ongoing",
-        "It achieved up to 24.2% weight loss in Phase 2 trials"
-      ]
-    },
-    {
-      "id": "peptide-vs-steroid",
-      "question": "Are peptides the same as steroids?",
-      "shape": "identity",
-      "relevance_grades": {
-        "01_what-are-peptides.md": 3,
-        "02_chapter-2.md": 0,
         "03_fda-approved-peptides.md": 0,
         "04_grey-market-compounds.md": 0,
         "05_safety-side-effects.md": 0,
         "06_regulatory-landscape.md": 0,
         "07_future-of-peptide-therapy.md": 0,
         "08_questions-to-ask-prescriber.md": 0,
-        "00_front-matter.md": 0,
-        "90_conclusion.md": 0
-      },
-      "gold_facts": [
-        "Peptides and steroids are not the same",
-        "Anabolic steroids are synthetic derivatives of testosterone",
-        "Peptides and steroids work through different classes of receptors",
-        "Steroids carry risks including liver toxicity and cardiovascular disease",
-        "Peptides are biologically different categories of molecules"
-      ]
-    },
-    {
-      "id": "stability-storage",
-      "question": "Why do some peptide medications require refrigeration?",
-      "shape": "focused",
-      "relevance_grades": {
-        "01_what-are-peptides.md": 1,
-        "02_chapter-2.md": 3,
-        "03_fda-approved-peptides.md": 0,
-        "04_grey-market-compounds.md": 0,
-        "05_safety-side-effects.md": 0,
-        "06_regulatory-landscape.md": 0,
-        "07_future-of-peptide-therapy.md": 0,
-        "08_questions-to-ask-prescriber.md": 0,
-        "00_front-matter.md": 0,
-        "90_conclusion.md": 0
-      },
-      "gold_facts": [
-        "Peptides are inherently fragile molecules",
-        "Unlike small-molecule drugs like ibuprofen, peptides have bonds designed to be broken by enzymes",
-        "Exposure to heat or repeated freeze-thaw cycles can degrade peptides",
-        "A vial left in a hot car may contain biologically inert degraded fragments"
-      ]
-    },
-    {
-      "id": "longevity-peptides-hype",
-      "question": "Are longevity peptides like Epitalon and MOTS-c proven to work?",
-      "shape": "cross-chapter",
-      "relevance_grades": {
-        "01_what-are-peptides.md": 0,
-        "02_chapter-2.md": 0,
-        "03_fda-approved-peptides.md": 0,
-        "04_grey-market-compounds.md": 2,
-        "05_safety-side-effects.md": 0,
-        "06_regulatory-landscape.md": 0,
-        "07_future-of-peptide-therapy.md": 3,
-        "08_questions-to-ask-prescriber.md": 0,
-        "00_front-matter.md": 0,
-        "90_conclusion.md": 0
-      },
-      "gold_facts": [
-        "Longevity peptides lack robust human randomized controlled trial data",
-        "Many are based on compelling animal models or in-vitro cell studies",
-        "Claims about reversing aging or optimizing biological clocks often lack Phase 3 human data",
-        "Epitalon activates telomerase which rebuilds telomeres",
-        "MOTS-c inhibits the folate cycle and may elevate homocysteine"
-      ]
-    },
-    {
-      "id": "tirzepatide-vs-semaglutide",
-      "question": "What is the difference between tirzepatide and semaglutide?",
-      "shape": "focused",
-      "relevance_grades": {
-        "01_what-are-peptides.md": 0,
-        "02_chapter-2.md": 1,
-        "03_fda-approved-peptides.md": 3,
-        "04_grey-market-compounds.md": 0,
-        "05_safety-side-effects.md": 1,
-        "06_regulatory-landscape.md": 0,
-        "07_future-of-peptide-therapy.md": 1,
-        "08_questions-to-ask-prescriber.md": 0,
-        "00_front-matter.md": 0,
-        "90_conclusion.md": 0
-      },
-      "gold_facts": [
-        "Semaglutide is a single GLP-1 receptor agonist",
-        "Tirzepatide is a dual GIP/GLP-1 receptor agonist",
-        "Tirzepatide targets two gut hormones simultaneously",
-        "In a 2025 NEJM trial, tirzepatide showed superior weight loss to semaglutide",
-        "Semaglutide half-life is about 165 hours; tirzepatide is about 120 hours"
-      ]
-    },
-    {
-      "id": "first-appointment",
-      "question": "What should I expect at my first peptide therapy appointment?",
-      "shape": "focused",
-      "relevance_grades": {
-        "01_what-are-peptides.md": 0,
-        "02_chapter-2.md": 0,
-        "03_fda-approved-peptides.md": 0,
-        "04_grey-market-compounds.md": 0,
-        "05_safety-side-effects.md": 0,
-        "06_regulatory-landscape.md": 0,
-        "07_future-of-peptide-therapy.md": 0,
-        "08_questions-to-ask-prescriber.md": 2,
-        "00_front-matter.md": 0,
+        "00_front-matter.md": 3,
         "99_back-matter.md": 3
       },
       "gold_facts": [
-        "You will fill out a detailed health history questionnaire",
-        "The clinician will walk through your history and goals",
-        "Expect education about how the proposed peptide works",
-        "Labs may be ordered to establish baseline values",
-        "The first dose may be given in the clinic for observation"
-      ]
-    },
-    {
-      "id": "ziconotide-approval",
-      "question": "What is ziconotide approved for?",
-      "shape": "identity",
-      "relevance_grades": {
-        "01_what-are-peptides.md": 1,
-        "02_chapter-2.md": 0,
-        "03_fda-approved-peptides.md": 3,
-        "04_grey-market-compounds.md": 0,
-        "05_safety-side-effects.md": 0,
-        "06_regulatory-landscape.md": 0,
-        "07_future-of-peptide-therapy.md": 0,
-        "08_questions-to-ask-prescriber.md": 0,
-        "00_front-matter.md": 0,
-        "90_conclusion.md": 0
-      },
-      "gold_facts": [
-        "Ziconotide is FDA-approved for severe chronic pain management",
-        "It is delivered via intrathecal infusion into the spinal cord",
-        "It is derived from the venom of a marine cone snail",
-        "It blocks N-type calcium channels to interrupt pain-signal transmission"
+        "Rye Walker, MD is a board-certified OB/GYN",
+        "Darren Frost is a healthcare and technology writer",
+        "The book was drafted with the assistance of large language model tools",
+        "Fourth Edition published in 2026"
       ]
     }
   ]

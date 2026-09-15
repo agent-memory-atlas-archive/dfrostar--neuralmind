@@ -1,10 +1,10 @@
 # NeuralMind Performance Report — Peptide Patient's Guide
 
-**Generated:** 2026-09-15 10:56:46
+**Generated:** 2026-09-15 11:16:33
 **NeuralMind Version:** 3.10.0
 **Project:** peptide-patient-guide
 **Index Size:** 61 nodes
-**Queries Run:** 19
+**Queries Run:** 14
 
 ---
 
@@ -12,16 +12,16 @@
 
 | Metric | Value | Grade |
 |--------|-------|-------|
-| Recall@1 | 73.7% | 🟢 |
-| Recall@3 | 86.0% | 🟢 |
-| Recall@5 | 94.3% | 🟢 |
-| Precision@5 | 34.5% | 🔴 |
-| MRR | 0.85 | 🟢 |
-| nDCG@5 | 0.82 | 🟢 |
+| Recall@1 | 64.3% | 🟡 |
+| Recall@3 | 76.2% | 🟡 |
+| Recall@5 | 95.2% | 🟢 |
+| Precision@5 | 38.6% | 🔴 |
+| MRR | 0.79 | 🟡 |
+| nDCG@5 | 0.81 | 🟢 |
 | Hit Rate | 100.0% | 🟢 |
-| Avg Latency | 1185ms | 🔴 |
-| P95 Latency | 15639ms | 🔴 |
-| Fact Recall | 48/86 (56%) | 🟡 |
+| Avg Latency | 1428ms | 🔴 |
+| P95 Latency | 15907ms | 🔴 |
+| Fact Recall | 27/57 (47%) | 🔴 |
 
 ---
 
@@ -29,9 +29,9 @@
 
 | Shape | Count | Recall@5 | MRR | Avg Latency |
 |-------|-------|----------|-----|-------------|
-| cross-chapter | 3 | 91.7% | 0.83 | 354ms |
-| focused | 11 | 92.4% | 0.89 | 394ms |
-| identity | 5 | 100.0% | 0.77 | 3425ms |
+| cross-chapter | 2 | 83.3% | 0.50 | 316ms |
+| focused | 10 | 96.7% | 0.86 | 322ms |
+| identity | 2 | 100.0% | 0.75 | 8067ms |
 
 ---
 
@@ -39,33 +39,28 @@
 
 | ID | Shape | R@1 | R@3 | R@5 | MRR | nDCG@5 | Latency | Top Chapter |
 |----|-------|-----|-----|-----|-----|--------|---------|-------------|
-| peptide-definition | identity | 0.00 | 1.00 | 1.00 | 0.50 | 0.67 | 15639ms | 03_fda-approved-peptides.md |
-| glp1-mechanism | focused | 1.00 | 0.67 | 0.67 | 1.00 | 0.80 | 310ms | 03_fda-approved-peptides.md |
-| bpc157-mechanism | focused | 0.00 | 1.00 | 1.00 | 0.33 | 0.50 | 315ms | 02_chapter-2.md |
-| fda-vs-pcac | cross-chapter | 1.00 | 0.50 | 0.75 | 1.00 | 0.67 | 338ms | 04_grey-market-compounds.md |
-| weight-loss-results | focused | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 412ms | 03_fda-approved-peptides.md |
-| peptide-half-lives | focused | 0.00 | 1.00 | 1.00 | 0.50 | 0.67 | 617ms | 01_what-are-peptides.md |
-| grey-market-risks | cross-chapter | 0.00 | 0.67 | 1.00 | 0.50 | 0.62 | 332ms | 08_questions-to-ask-prescriber.md |
-| black-box-warning | focused | 1.00 | 1.00 | 1.00 | 1.00 | 0.94 | 300ms | 05_safety-side-effects.md |
-| oral-peptide-future | focused | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 284ms | 07_future-of-peptide-therapy.md |
-| cardiovascular-benefits | focused | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 410ms | 03_fda-approved-peptides.md |
-| questions-to-ask-doctor | focused | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 428ms | 08_questions-to-ask-prescriber.md |
-| side-effect-rates | identity | 1.00 | 0.50 | 1.00 | 1.00 | 0.91 | 483ms | 05_safety-side-effects.md |
-| retatrutide-status | identity | 0.00 | 1.00 | 1.00 | 0.33 | 0.50 | 314ms | 03_fda-approved-peptides.md |
-| peptide-vs-steroid | identity | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 296ms | 01_what-are-peptides.md |
-| stability-storage | focused | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 504ms | 02_chapter-2.md |
-| longevity-peptides-hype | cross-chapter | 1.00 | 0.50 | 1.00 | 1.00 | 0.91 | 392ms | 07_future-of-peptide-therapy.md |
-| tirzepatide-vs-semaglutide | focused | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 378ms | 03_fda-approved-peptides.md |
-| first-appointment | focused | 1.00 | 0.50 | 0.50 | 1.00 | 0.33 | 379ms | 08_questions-to-ask-prescriber.md |
-| ziconotide-approval | identity | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 393ms | 03_fda-approved-peptides.md |
+| peptide-definition | identity | 0.00 | 1.00 | 1.00 | 0.50 | 0.67 | 15907ms | 03_fda-approved-peptides.md |
+| glp1-mechanism | focused | 1.00 | 0.67 | 0.67 | 1.00 | 0.80 | 413ms | 03_fda-approved-peptides.md |
+| fda-approval-meaning | focused | 1.00 | 0.67 | 1.00 | 1.00 | 0.84 | 365ms | 06_regulatory-landscape.md |
+| pcac-recommendation | cross-chapter | 0.00 | 0.50 | 1.00 | 0.50 | 0.64 | 357ms | 03_fda-approved-peptides.md |
+| weight-loss-semaglutide | focused | 0.00 | 1.00 | 1.00 | 0.33 | 0.50 | 254ms | 06_regulatory-landscape.md |
+| retatrutide-triple-agonist | focused | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 253ms | 07_future-of-peptide-therapy.md |
+| bpc157-grey-market | focused | 0.00 | 0.00 | 1.00 | 0.25 | 0.40 | 256ms | 01_what-are-peptides.md |
+| black-box-warning-thyroid | focused | 1.00 | 0.50 | 1.00 | 1.00 | 0.89 | 338ms | 05_safety-side-effects.md |
+| tirzepatide-dual-agonist | focused | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 339ms | 03_fda-approved-peptides.md |
+| oral-peptide-delivery | focused | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 288ms | 07_future-of-peptide-therapy.md |
+| grey-market-risks | cross-chapter | 0.00 | 0.33 | 0.67 | 0.50 | 0.54 | 275ms | 08_questions-to-ask-prescriber.md |
+| peptide-stability-refrigeration | focused | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 357ms | 02_chapter-2.md |
+| questions-to-ask-prescriber | focused | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 358ms | 08_questions-to-ask-prescriber.md |
+| book-authors | identity | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 227ms | 00_front-matter.md |
 
 ---
 
 ## Brutally Honest Assessment
 
 ### What's Working Well
-- **16/19 queries** achieve ≥80% recall@5
-- **16/19 queries** complete in under 500ms
+- **12/14 queries** achieve ≥80% recall@5
+- **13/14 queries** complete in under 500ms
 - **100% hit rate** — most queries find at least one relevant chapter
 
 ### What Needs Improvement
@@ -90,7 +85,7 @@
 
 | Approach | Expected Recall@5 | Pros | Cons |
 |----------|-------------------|------|------|
-| NeuralMind (current) | 94% | Learns over time | Wrong tool for prose, verbose |
+| NeuralMind (current) | 95% | Learns over time | Wrong tool for prose, verbose |
 | Pure embedding (ChromaDB) | ~85-90% | Fast, accurate | No structure awareness |
 | BM25 keyword search | ~70-80% | Fast, interpretable | Misses semantic matches |
 | Hybrid (BM25 + embedding) | ~90-95% | Best of both worlds | More complex |
@@ -118,7 +113,7 @@
 
 ## Conclusion
 
-NeuralMind v3.10.0 **functions** as a retrieval system but is **not optimized for books**. At 94% recall, it misses more than half the relevant content.
+NeuralMind v3.10.0 **functions** as a retrieval system but is **not optimized for books**. At 95% recall, it misses more than half the relevant content.
 
 **Verdict:** A purpose-built content retrieval system would achieve >90% recall with cleaner output.
 
