@@ -1,6 +1,6 @@
 # NeuralMind Performance Report — Peptide Patient's Guide
 
-**Generated:** 2026-09-15 11:16:33
+**Generated:** 2026-09-15 11:54:41
 **NeuralMind Version:** 3.10.0
 **Project:** peptide-patient-guide
 **Index Size:** 61 nodes
@@ -13,15 +13,15 @@
 | Metric | Value | Grade |
 |--------|-------|-------|
 | Recall@1 | 64.3% | 🟡 |
-| Recall@3 | 76.2% | 🟡 |
+| Recall@3 | 81.0% | 🟢 |
 | Recall@5 | 95.2% | 🟢 |
 | Precision@5 | 38.6% | 🔴 |
 | MRR | 0.79 | 🟡 |
-| nDCG@5 | 0.81 | 🟢 |
+| nDCG@5 | 0.80 | 🟢 |
 | Hit Rate | 100.0% | 🟢 |
-| Avg Latency | 1428ms | 🔴 |
-| P95 Latency | 15907ms | 🔴 |
-| Fact Recall | 27/57 (47%) | 🔴 |
+| Avg Latency | 2332ms | 🔴 |
+| P95 Latency | 25340ms | 🔴 |
+| Fact Recall | 30/57 (53%) | 🟡 |
 
 ---
 
@@ -29,9 +29,9 @@
 
 | Shape | Count | Recall@5 | MRR | Avg Latency |
 |-------|-------|----------|-----|-------------|
-| cross-chapter | 2 | 83.3% | 0.50 | 316ms |
-| focused | 10 | 96.7% | 0.86 | 322ms |
-| identity | 2 | 100.0% | 0.75 | 8067ms |
+| cross-chapter | 2 | 83.3% | 0.42 | 850ms |
+| focused | 10 | 96.7% | 0.87 | 539ms |
+| identity | 2 | 100.0% | 0.75 | 12774ms |
 
 ---
 
@@ -39,20 +39,20 @@
 
 | ID | Shape | R@1 | R@3 | R@5 | MRR | nDCG@5 | Latency | Top Chapter |
 |----|-------|-----|-----|-----|-----|--------|---------|-------------|
-| peptide-definition | identity | 0.00 | 1.00 | 1.00 | 0.50 | 0.67 | 15907ms | 03_fda-approved-peptides.md |
-| glp1-mechanism | focused | 1.00 | 0.67 | 0.67 | 1.00 | 0.80 | 413ms | 03_fda-approved-peptides.md |
-| fda-approval-meaning | focused | 1.00 | 0.67 | 1.00 | 1.00 | 0.84 | 365ms | 06_regulatory-landscape.md |
-| pcac-recommendation | cross-chapter | 0.00 | 0.50 | 1.00 | 0.50 | 0.64 | 357ms | 03_fda-approved-peptides.md |
-| weight-loss-semaglutide | focused | 0.00 | 1.00 | 1.00 | 0.33 | 0.50 | 254ms | 06_regulatory-landscape.md |
-| retatrutide-triple-agonist | focused | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 253ms | 07_future-of-peptide-therapy.md |
-| bpc157-grey-market | focused | 0.00 | 0.00 | 1.00 | 0.25 | 0.40 | 256ms | 01_what-are-peptides.md |
-| black-box-warning-thyroid | focused | 1.00 | 0.50 | 1.00 | 1.00 | 0.89 | 338ms | 05_safety-side-effects.md |
-| tirzepatide-dual-agonist | focused | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 339ms | 03_fda-approved-peptides.md |
-| oral-peptide-delivery | focused | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 288ms | 07_future-of-peptide-therapy.md |
-| grey-market-risks | cross-chapter | 0.00 | 0.33 | 0.67 | 0.50 | 0.54 | 275ms | 08_questions-to-ask-prescriber.md |
-| peptide-stability-refrigeration | focused | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 357ms | 02_chapter-2.md |
-| questions-to-ask-prescriber | focused | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 358ms | 08_questions-to-ask-prescriber.md |
-| book-authors | identity | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 227ms | 00_front-matter.md |
+| peptide-definition | identity | 0.00 | 1.00 | 1.00 | 0.50 | 0.67 | 25340ms | 03_fda-approved-peptides.md |
+| glp1-mechanism | focused | 1.00 | 0.67 | 0.67 | 1.00 | 0.80 | 890ms | 03_fda-approved-peptides.md |
+| fda-approval-meaning | focused | 1.00 | 1.00 | 1.00 | 1.00 | 0.87 | 784ms | 06_regulatory-landscape.md |
+| pcac-recommendation | cross-chapter | 0.00 | 0.50 | 1.00 | 0.33 | 0.54 | 522ms | 98_claims-register-appendix.md |
+| weight-loss-semaglutide | focused | 0.00 | 0.00 | 1.00 | 0.20 | 0.33 | 424ms | 06_regulatory-landscape.md |
+| retatrutide-triple-agonist | focused | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 824ms | 07_future-of-peptide-therapy.md |
+| bpc157-grey-market | focused | 0.00 | 1.00 | 1.00 | 0.50 | 0.67 | 554ms | 01_what-are-peptides.md |
+| black-box-warning-thyroid | focused | 1.00 | 0.50 | 1.00 | 1.00 | 0.91 | 519ms | 05_safety-side-effects.md |
+| tirzepatide-dual-agonist | focused | 1.00 | 1.00 | 1.00 | 1.00 | 0.85 | 523ms | 07_future-of-peptide-therapy.md |
+| oral-peptide-delivery | focused | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 410ms | 07_future-of-peptide-therapy.md |
+| grey-market-risks | cross-chapter | 0.00 | 0.67 | 0.67 | 0.50 | 0.59 | 1179ms | 08_questions-to-ask-prescriber.md |
+| peptide-stability-refrigeration | focused | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 226ms | 02_chapter-2.md |
+| questions-to-ask-prescriber | focused | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 239ms | 08_questions-to-ask-prescriber.md |
+| book-authors | identity | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 208ms | 00_front-matter.md |
 
 ---
 
@@ -60,11 +60,11 @@
 
 ### What's Working Well
 - **12/14 queries** achieve ≥80% recall@5
-- **13/14 queries** complete in under 500ms
+- **5/14 queries** complete in under 500ms
 - **100% hit rate** — most queries find at least one relevant chapter
 
 ### What Needs Improvement
-- **1 queries** exceed 1 second latency
+- **2 queries** exceed 1 second latency
 - **1 queries** returned fewer than 3 chapters — context may be too sparse
 
 ### Critical Issues

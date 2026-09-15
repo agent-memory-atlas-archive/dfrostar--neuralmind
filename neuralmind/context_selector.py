@@ -371,7 +371,7 @@ class ContextSelector:
 
     # RRF constant — rank 60 contribution = 1/61 ≈ 0.016.  Lower values
     # weight the top positions more aggressively; 60 is the de-facto standard.
-    RRF_K = 60
+    RRF_K = 10  # was: 60 — for 61-node index, k=10 creates proper rank differentiation
 
     def _rrf_merge(
         self,
@@ -1606,14 +1606,8 @@ class ContextSelector:
                 for token in q_tokens:
                     doc_count += bm25_index._df.get(token, 0)
 
-                # If query terms are rare (avg DF ≤ 3), boost BM25
-                avg_df = doc_count / len(q_tokens) if q_tokens else 0
-                if avg_df <= 3:
-                    vec_weight = 0.2
-                    kw_weight = 0.8
-                elif avg_df <= 10:
-                    vec_weight = 0.3
-                    kw_weight = 0.7
+                vec_weight = 0.5
+                kw_weight = 0.5
 
         return vec_weight, kw_weight
 
@@ -1783,10 +1777,10 @@ class ContextSelector:
             boost = 1.0
             applied = None
             if primary in chapter_weights:
-                boost = 2.0
+                boost = 1.3
                 applied = primary
             elif any(si in chapter_weights for si in secondary):
-                boost = 1.5
+                boost = 1.1
                 applied = next((si for si in secondary if si in chapter_weights), None)
 
             if boost > 1.0:
