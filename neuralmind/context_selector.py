@@ -494,7 +494,41 @@ class ContextSelector:
             combined.append((nid, final, node))
 
         combined.sort(key=lambda x: x[1], reverse=True)
-        return [node for _, _, node in combined]
+
+        # Chapter-level diversity boost: a chapter with one strong match
+        # (>0.7) outranks one with N marginal matches (0.3-0.5).
+        strong_match_threshold = 0.7
+        chapter_strong_boost = 1.5
+        chapter_best: dict[str, float] = {}
+        for nid, score, node in combined:
+            meta = node.get("metadata", {})
+            sf = meta.get("source_file", "")
+            chapter_key = sf if sf else nid.split(":")[0] if ":" in nid else nid
+            if chapter_key not in chapter_best or score > chapter_best[chapter_key]:
+                chapter_best[chapter_key] = score
+
+        for i, (nid, score, node) in enumerate(combined):
+            meta = node.get("metadata", {})
+            sf = meta.get("source_file", "")
+            chapter_key = sf if sf else nid.split(":")[0] if ":" in nid else nid
+            if chapter_best.get(chapter_key, 0) > strong_match_threshold:
+                combined[i] = (nid, score * chapter_strong_boost, node)
+
+        combined.sort(key=lambda x: x[1], reverse=True)
+
+        # Chapter-level dedup — keep only the top node per chapter.
+        seen_chapters: set[str] = set()
+        deduped = []
+        for nid, score, node in combined:
+            meta = node.get("metadata", {})
+            sf = meta.get("source_file", "")
+            chapter_key = sf if sf else nid.split(":")[0] if ":" in nid else nid
+            if chapter_key in seen_chapters:
+                continue
+            seen_chapters.add(chapter_key)
+            deduped.append((nid, score, node))
+
+        return [node for _, _, node in deduped]
 
     def _estimate_tokens(self, text: str) -> int:
         """Estimate token count from text."""
@@ -530,19 +564,31 @@ class ContextSelector:
         if cached is not None and len(cached) >= n:
             return cached[:n]
         fetch_n = max(n, self._query_search_max_n)
-        vec_results = self.embedder.search(query, n=fetch_n)
+
+        # v3.12.0: Expand query with medical terminology synonyms
+        if getattr(self, "project_kind", "code") == "prose":
+            from .terminology import expand_query_with_terminology
+
+            expanded_query = expand_query_with_terminology(query)
+        else:
+            expanded_query = query
+
+        vec_results = self.embedder.search(expanded_query, n=fetch_n)
 
         if getattr(self, "project_kind", "code") == "prose":
             # Prose branch: weighted hybrid scoring with prose BM25 tokenizer
             bm25_search_prose = getattr(self.embedder, "bm25_search_prose", None)
             if callable(bm25_search_prose) and os.environ.get("NEURALMIND_BM25") != "0":
-                kw_results = bm25_search_prose(query, n=fetch_n)
+                kw_results = bm25_search_prose(expanded_query, n=fetch_n)
                 if kw_results and isinstance(kw_results, list):
                     # Adaptive weights: rare terms (DF ≤ 3) boost BM25
                     vec_weight, kw_weight = self._adaptive_weights(query)
                     merged = self._weighted_hybrid_score(
                         vec_results, kw_results, vec_weight=vec_weight, kw_weight=kw_weight
                     )
+                    # Apply prose intent boost (1.3× for matching chapters)
+                    intents = self._detect_prose_intent(query)
+                    merged = self._apply_prose_intent_boost(merged, intents)
                     results = merged[:fetch_n]
                 else:
                     results = vec_results
@@ -1562,55 +1608,233 @@ class ContextSelector:
 
         return vec_weight, kw_weight
 
+    # Prose query intent keywords (chapter-level intent detection)
+    _PROSE_INTENT_KEYWORDS: dict[str, list[str]] = {
+        "mechanism": [
+            "how does",
+            "mechanism",
+            "work",
+            "function",
+            "action",
+            "pathway",
+            "receptor",
+            "bind",
+            "signal",
+        ],
+        "comparison": [
+            "difference",
+            "compare",
+            "versus",
+            "vs",
+            "differ",
+            "better",
+            "worse",
+            "efficacy",
+        ],
+        "regulatory": [
+            "fda",
+            "approval",
+            "regulatory",
+            "pcac",
+            "compliance",
+            "legal",
+            "law",
+            "rule",
+            "503a",
+            "503b",
+        ],
+        "delivery": [
+            "oral",
+            "delivery",
+            "injection",
+            "subcutaneous",
+            "nasal",
+            "topical",
+            "route",
+            "absorption",
+        ],
+        "safety": [
+            "side effect",
+            "risk",
+            "warning",
+            "adverse",
+            "contraindication",
+            "toxicity",
+            "danger",
+            "black box",
+        ],
+        "cost": ["cost", "price", "expensive", "cheap", "afford", "insurance", "coverage"],
+        "future": [
+            "future",
+            "pipeline",
+            "coming",
+            "next",
+            "upcoming",
+            "research",
+            "trial",
+            "phase",
+        ],
+        "definition": ["what is", "what are", "define", "definition", "meaning", "explain"],
+    }
+
+    # Chapter intent mapping for peptide book
+    _PROSE_CHAPTER_INTENTS: dict[str, list[str]] = {
+        "01_what-are-peptides": ["definition", "mechanism"],
+        "02_chapter-2": ["mechanism", "delivery"],
+        "03_fda-approved-peptides": ["comparison", "regulatory", "mechanism"],
+        "04_grey-market-compounds": ["regulatory", "safety"],
+        "05_safety-side-effects": ["safety"],
+        "06_regulatory-landscape": ["regulatory"],
+        "07_future-of-peptide-therapy": ["future", "comparison"],
+        "08_questions-to-ask-prescriber": ["definition"],
+        "98_claims-register-appendix": [],
+        "99_back-matter": ["definition"],
+        "00_front-matter": ["definition"],
+    }
+
+    def _detect_prose_intent(self, query: str) -> list[str]:
+        """Detect query intent keywords for prose projects.
+
+        Strong indicator phrases (difference, differ, how does, mechanism)
+        get +2 weight; single keywords get +1. Comparison signals
+        (difference, differ, versus) explicitly outrank mechanism when both
+        match. Returns intents sorted by score (highest first), filtering
+        out zero-score intents.
+        """
+        q = query.lower()
+        scores: dict[str, int] = {}
+        for intent, keywords in self._PROSE_INTENT_KEYWORDS.items():
+            score = 0
+            for kw in keywords:
+                if kw in q:
+                    # Strong indicators get +2, single keywords +1
+                    if len(kw) > 6 and " " in kw:
+                        score += 2
+                    elif kw in (
+                        "difference",
+                        "differ",
+                        "compare",
+                        "versus",
+                        "mechanism",
+                        "delivery",
+                        "oral",
+                    ):
+                        score += 2
+                    else:
+                        score += 1
+            if score > 0:
+                scores[intent] = score
+
+        # Comparison signals outrank mechanism when both match
+        comparison_signals = ("difference", "differ", "compare", "versus", "vs")
+        if any(sig in q for sig in comparison_signals):
+            for intent in scores:
+                if intent == "comparison":
+                    scores[intent] += 2
+            # Demote mechanism if comparison is present
+            if "mechanism" in scores and "comparison" in scores:
+                scores["mechanism"] = max(0, scores["mechanism"] - 1)
+
+        return [i for i, s in sorted(scores.items(), key=lambda x: -x[1]) if s > 0]
+
+    def _apply_prose_intent_boost(
+        self,
+        results: list[dict[str, Any]],
+        intents: list[str],
+    ) -> list[dict[str, Any]]:
+        """Boost results whose chapter intent matches the query intent.
+
+        Factor 1.3× for the top matching intent only.
+        """
+        if not intents:
+            return results
+        primary = intents[0]
+        boosted = []
+        for r in results:
+            meta = r.get("metadata", {})
+            sf = meta.get("source_file", "")
+            base = sf.split("/")[-1] if "/" in sf else sf
+            # Extract chapter prefix (e.g., "01_what-are-peptides")
+            prefix = ""
+            if base:
+                # Find first 2 digits + underscore
+                for i in range(len(base) - 2):
+                    if base[i : i + 2].isdigit() and base[i + 2] == "_":
+                        end = i + 3
+                        while end < len(base) and (base[end].isalnum() or base[end] in "-_"):
+                            end += 1
+                        prefix = base[i:end]
+                        break
+            if primary in self._PROSE_CHAPTER_INTENTS.get(prefix, []):
+                r = dict(r)
+                r["score"] = r.get("score", 0.0) * 1.3
+                r["_prose_intent"] = primary
+            boosted.append(r)
+        boosted.sort(key=lambda x: x.get("score", 0.0), reverse=True)
+        return boosted
+
     def _assemble_prose_context(self, ranked_nodes: list[dict], max_tokens: int = 800) -> str:
         """Assemble prose context from ranked nodes (P0.3).
 
-        For each node, builds a block with chapter, section, and content
-        text. Strips YAML frontmatter from content. Accumulates blocks
-        until ``max_tokens`` is reached.
-
-        Groups consecutive nodes from same chapter/section to avoid
-        redundant headers. Each unique (chapter, section) pair gets one
-        header block.
+        v3.12.0: emits at most one block per chapter. Consecutive same-chapter
+        nodes are merged into a single block. This prevents a single chapter
+        from occupying multiple slots in the top-K and improves precision.
         """
         blocks = []
         tokens_used = 0
+        emitted_chapters: set[str] = set()
         last_chapter = None
         last_section = None
+        chapter_buffer: list[str] = []
+        chapter_header = ""
+        chapter_tokens = 0
+
+        def flush_chapter():
+            """Emit the buffered chapter block and reset state."""
+            nonlocal chapter_buffer, chapter_header, chapter_tokens, tokens_used
+            if not chapter_buffer:
+                return
+            block = f"{chapter_header}" + "\n\n".join(chapter_buffer) + "\n\n"
+            block_tokens = len(block) // self.CHARS_PER_TOKEN
+            if tokens_used + block_tokens > max_tokens and blocks:
+                chapter_buffer = []
+                chapter_header = ""
+                chapter_tokens = 0
+                return
+            blocks.append(block)
+            tokens_used += block_tokens
+            chapter_buffer = []
+            chapter_header = ""
+            chapter_tokens = 0
 
         for node in ranked_nodes:
             meta = node.get("metadata", {})
             chapter = meta.get("chapter", "Unknown Chapter")
             section = meta.get("section", "Unknown Section")
-            source_file = meta.get("source_file", node.get("source_file", ""))
             content_text = node.get("document", "")
 
-            # Strip YAML frontmatter
             content_text = self._strip_frontmatter(content_text)
-
             if not content_text:
                 continue
 
-            # Build header only when chapter or section changes
+            # Skip chapters already emitted (one block per chapter max)
+            if chapter in emitted_chapters:
+                continue
+
             if chapter != last_chapter or section != last_section:
-                header = f"## {chapter}\n### {section}\n\n"
+                flush_chapter()
+                chapter_header = f"## {chapter}\n### {section}\n\n"
                 last_chapter = chapter
                 last_section = section
-            else:
-                header = ""
+                emitted_chapters.add(chapter)
 
-            block = (
-                f"{header}"
-                f"{content_text}\n\n"
-                f'— {source_file} — {chapter}, section "{section}"\n'
-            )
-            block_tokens = len(block) // self.CHARS_PER_TOKEN
+            chapter_buffer.append(content_text)
+            chapter_tokens += len(content_text) // self.CHARS_PER_TOKEN
 
-            if tokens_used + block_tokens > max_tokens and blocks:
-                break
+            if chapter_tokens >= max_tokens // 2:
+                flush_chapter()
 
-            blocks.append(block)
-            tokens_used += block_tokens
+        flush_chapter()
 
         return "\n".join(blocks)
 
