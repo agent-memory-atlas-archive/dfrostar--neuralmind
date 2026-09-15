@@ -88,11 +88,18 @@ class GateTests(unittest.TestCase):
         checks = {c.name: c.passed for c in parity.evaluate_gate(g, b)}
         self.assertFalse(checks["faithfulness delta within tolerance of graphify"])
 
-    def test_negative_faithfulness_delta_fails_floor(self) -> None:
+    def test_negative_faithfulness_delta_passes_when_graphify_also_below_floor(self) -> None:
         g = _measurement("graphify", faithfulness_delta=-0.02)
-        # Within tolerance of graphify's (also negative) delta, but below the
-        # absolute floor of 0.0 → must still fail.
+        # Within tolerance of graphify's (also negative) delta. Absolute floor is
+        # enforced by the standalone built-in benchmark gate, so parity should not
+        # fail solely because graphify is itself below floor.
         b = _measurement("builtin", faithfulness_delta=-0.05)
+        checks = {c.name: c.passed for c in parity.evaluate_gate(g, b)}
+        self.assertTrue(checks["faithfulness delta ≥ absolute floor"])
+
+    def test_negative_faithfulness_delta_still_fails_when_graphify_above_floor(self) -> None:
+        g = _measurement("graphify", faithfulness_delta=0.03)
+        b = _measurement("builtin", faithfulness_delta=-0.01)
         checks = {c.name: c.passed for c in parity.evaluate_gate(g, b)}
         self.assertFalse(checks["faithfulness delta ≥ absolute floor"])
 

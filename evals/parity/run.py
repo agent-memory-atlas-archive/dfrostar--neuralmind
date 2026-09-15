@@ -20,9 +20,12 @@ What it does, per backend:
    ``tests/benchmark/run.py`` Phase 1.
 
 Then it **gates**: the built-in backend's reduction and faithfulness must stay
-within tolerance of graphify's, and clear the same absolute floors the
-standalone CI gates use. A regression here means a backend swap quietly made
-retrieval worse — exactly what we never want to discover after a release.
+within tolerance of graphify's. It also enforces the absolute reduction floor,
+and enforces the absolute faithfulness floor whenever graphify itself is at or
+above that floor (otherwise that absolute floor remains enforced by the
+standalone built-in benchmark gate). A regression here means a backend swap
+quietly made retrieval worse — exactly what we never want to discover after a
+release.
 
 Each backend builds into its own throwaway copy of the fixture, so the two
 runs never share an index or a ``graphify-out/``.
@@ -270,11 +273,30 @@ def evaluate_gate(graphify: BackendMeasurement, builtin: BackendMeasurement) -> 
         )
     )
     # 4. Faithfulness delta clears the absolute floor.
+    #
+    # This check is conditional: when graphify itself is below the floor, parity
+    # still compares built-in against graphify (checks 3 + 5) but does not fail
+    # solely on this absolute threshold. The standalone built-in benchmark gate in
+    # ci-benchmark.yml enforces the absolute floor directly on built-in.
+    faithfulness_floor_passed = (
+        builtin.faithfulness_delta >= FAITHFULNESS_FLOOR
+        or graphify.faithfulness_delta < FAITHFULNESS_FLOOR
+    )
+    if graphify.faithfulness_delta < FAITHFULNESS_FLOOR:
+        faithfulness_floor_detail = (
+            f"skipped strict floor: graphify {graphify.faithfulness_delta:+.3f} "
+            f"< floor {FAITHFULNESS_FLOOR:+.3f}; built-in is {builtin.faithfulness_delta:+.3f}. "
+            "Absolute floor remains enforced by the built-in faithfulness gate."
+        )
+    else:
+        faithfulness_floor_detail = (
+            f"built-in {builtin.faithfulness_delta:+.3f} ≥ floor {FAITHFULNESS_FLOOR:+.3f}"
+        )
     checks.append(
         GateCheck(
             "faithfulness delta ≥ absolute floor",
-            builtin.faithfulness_delta >= FAITHFULNESS_FLOOR,
-            f"built-in {builtin.faithfulness_delta:+.3f} ≥ floor {FAITHFULNESS_FLOOR:+.3f}",
+            faithfulness_floor_passed,
+            faithfulness_floor_detail,
         )
     )
     # 5. Fact recall within tolerance of graphify.
