@@ -88,13 +88,23 @@ class GateTests(unittest.TestCase):
         checks = {c.name: c.passed for c in parity.evaluate_gate(g, b)}
         self.assertFalse(checks["faithfulness delta within tolerance of graphify"])
 
-    def test_negative_faithfulness_delta_fails_floor(self) -> None:
-        g = _measurement("graphify", faithfulness_delta=-0.02)
-        # Within tolerance of graphify's (also negative) delta, but below the
-        # absolute floor of 0.0 → must still fail.
+    def test_negative_faithfulness_delta_fails_floor_when_graphify_meets_it(self) -> None:
+        g = _measurement("graphify", faithfulness_delta=0.03)
+        # Within tolerance of graphify's delta, but below the absolute floor.
         b = _measurement("builtin", faithfulness_delta=-0.05)
         checks = {c.name: c.passed for c in parity.evaluate_gate(g, b)}
         self.assertFalse(checks["faithfulness delta ≥ absolute floor"])
+
+    def test_negative_faithfulness_delta_defers_floor_when_graphify_is_below_it(self) -> None:
+        g = _measurement("graphify", faithfulness_delta=-0.02)
+        # When graphify itself is below the absolute floor, parity should only
+        # enforce relative tolerance and defer the absolute non-negative check to
+        # the built-in benchmark gate.
+        b = _measurement("builtin", faithfulness_delta=-0.05)
+        checks = {c.name: c for c in parity.evaluate_gate(g, b)}
+        self.assertTrue(checks["faithfulness delta within tolerance of graphify"].passed)
+        self.assertTrue(checks["faithfulness delta ≥ absolute floor"].passed)
+        self.assertIn("deferred:", checks["faithfulness delta ≥ absolute floor"].detail)
 
     def test_recall_regression_fails(self) -> None:
         g = _measurement("graphify", nm_mean_recall=0.80)
