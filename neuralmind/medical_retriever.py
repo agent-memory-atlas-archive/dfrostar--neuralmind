@@ -304,7 +304,7 @@ def compute_heading_score(query_tokens: set[str], heading_text: str) -> float:
     - Substring matching for key phrases
 
     Args:
-        query_tokens: Set of query tokens.
+        query_tokens: Set of query tokens (case-insensitive).
         heading_text: The heading text to match against.
 
     Returns:
@@ -313,21 +313,23 @@ def compute_heading_score(query_tokens: set[str], heading_text: str) -> float:
     if not query_tokens or not heading_text:
         return 0.0
 
+    # Normalize query tokens to lowercase for case-insensitive matching
+    query_tokens_lower = {t.lower() for t in query_tokens}
     heading_lower = heading_text.lower()
     heading_tokens = set(_tokenize_prose(heading_text))
 
     # Exact token overlap
-    exact_overlap = query_tokens & heading_tokens
-    exact_score = len(exact_overlap) / max(1, len(query_tokens))
+    exact_overlap = query_tokens_lower & heading_tokens
+    exact_score = len(exact_overlap) / max(1, len(query_tokens_lower))
 
     # Partial/fuzzy matching: check if query tokens are substrings of heading tokens
     partial_matches = 0
-    for qt in query_tokens:
+    for qt in query_tokens_lower:
         for ht in heading_tokens:
             if qt in ht or ht in qt:
                 partial_matches += 1
                 break
-    partial_score = partial_matches / max(1, len(query_tokens))
+    partial_score = partial_matches / max(1, len(query_tokens_lower))
 
     # Phrase-level matching: check if multi-word query appears in heading
     phrase_score = 0.0

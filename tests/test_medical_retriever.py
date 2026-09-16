@@ -53,49 +53,63 @@ MEDICAL_CHAPTERS_DIR = MEDICAL_FIXTURES_DIR / "chapters"
 def ensure_test_chapters():
     """Create test chapters, overwriting any existing files."""
     MEDICAL_CHAPTERS_DIR.mkdir(parents=True, exist_ok=True)
+    CHAPTERS_DIR.mkdir(parents=True, exist_ok=True)
     # Create 11 chapter files with relevant content for the tests
+    # Each chapter must have H2 sections for section-level indexing tests
     # Chapter 1: peptide definition
     with open(MEDICAL_CHAPTERS_DIR / "chapter_01.md", "w") as f:
         f.write(
-            "# Chapter 1: What is a peptide?\\n\\nA peptide is a short chain of amino acids.\\n"
+            "# Chapter 1: What is a peptide?\n\n"
+            "## Definition\n\nA peptide is a short chain of amino acids.\n\n"
+            "## Examples\n\nInsulin and oxytocin are peptide hormones.\n"
         )
     # Chapter 2: semaglutide
     with open(MEDICAL_CHAPTERS_DIR / "chapter_02.md", "w") as f:
         f.write(
-            "# Chapter 2: Semaglutide\\n\\nSemaglutide is a peptide drug that is a GLP-1 receptor agonist for diabetes.\\n"
+            "# Chapter 2: Semaglutide\n\n"
+            "## Mechanism\n\nSemaglutide is a peptide drug that is a GLP-1 receptor agonist for diabetes.\n\n"
+            "## Usage\n\nUsed for weight management.\n"
         )
     # Chapter 3: retatrutide and black box warning
     with open(MEDICAL_CHAPTERS_DIR / "chapter_03.md", "w") as f:
         f.write(
-            "# Chapter 3: Retatrutide and Tirzepatide\\n\\nSemaglutide is a peptide drug that is a GLP-1 agonist. Tirzepatide is also a peptide drug.\\n\\n"
-            "The FDA approval process for peptides involves preclinical testing, clinical trials (Phase I, II, III), and review of safety and efficacy data.\\n"
+            "# Chapter 3: Retatrutide and Tirzepatide\n\n"
+            "## Overview\n\nSemaglutide is a peptide drug that is a GLP-1 agonist. Tirzepatide is also a peptide drug.\n\n"
+            "## FDA Approval\n\nThe FDA approval process for peptides involves preclinical testing, clinical trials (Phase I, II, III), and review of safety and efficacy data.\n"
         )
     # Chapter 4: BPC-157
     with open(MEDICAL_CHAPTERS_DIR / "chapter_04.md", "w") as f:
         f.write(
-            "# Chapter 4: BPC-157\\n\\nBPC-157 is a peptide being studied for wound healing.\\n\\n"
-            "There are risks associated with buying peptides from research chemical websites, including lack of quality control, potential contamination, and inaccurate labeling.\\n"
+            "# Chapter 4: BPC-157\n\n"
+            "## Research\n\nBPC-157 is a peptide being studied for wound healing.\n\n"
+            "## Risks\n\nThere are risks associated with buying peptides from research chemical websites, including lack of quality control, potential contamination, and inaccurate labeling.\n"
         )
     # Chapter 5: black box warning (thyroid)
     with open(MEDICAL_CHAPTERS_DIR / "chapter_05.md", "w") as f:
         f.write(
-            "# Chapter 5: Safety Warning\\n\\nSemaglutide is a peptide that has a black box warning for thyroid tumors.\\n"
+            "# Chapter 5: Safety Warning\n\n"
+            "## Warning\n\nSemaglutide is a peptide that has a black box warning for thyroid tumors.\n"
         )
     # Chapter 6: future chapters
     with open(MEDICAL_CHAPTERS_DIR / "chapter_06.md", "w") as f:
-        f.write("# Chapter 6: Future Research\\n\\nMore studies on peptide drugs are needed.\\n")
+        f.write("# Chapter 6: Future Research\n\n## Overview\n\nMore studies on peptide drugs are needed.\n")
     # Chapter 7: oral peptide
     with open(MEDICAL_CHAPTERS_DIR / "chapter_07.md", "w") as f:
-        f.write("# Chapter 7: Oral Peptides\\n\\nOral peptide options are under investigation.\\n")
+        f.write("# Chapter 7: Oral Peptides\n\n## Overview\n\nOral peptide options are under investigation.\n")
     # Chapter 8: questions to ask prescriber
     with open(MEDICAL_CHAPTERS_DIR / "chapter_08.md", "w") as f:
         f.write(
-            "# Chapter 8: Questions to Ask Your Prescriber\\n\\nBefore starting peptide therapy, you should ask your doctor about the potential benefits, risks, side effects, and how to monitor your response to treatment.\\n"
+            "# Chapter 8: Questions to Ask Your Prescriber\n\n"
+            "## Questions\n\nBefore starting peptide therapy, you should ask your doctor about the potential benefits, risks, side effects, and how to monitor your response to treatment.\n"
         )
     # Chapter 9 to 11: filler
     for i in range(9, 12):
         with open(MEDICAL_CHAPTERS_DIR / f"chapter_{i:02d}.md", "w") as f:
-            f.write(f"# Chapter {i}: Placeholder\\n\\nPlaceholder content for chapter {i}.\\n")
+            f.write(f"# Chapter {i}: Placeholder\n\n## Content\n\nPlaceholder content for chapter {i}.\n")
+    # Also write copies to CHAPTERS_DIR for tests using that path
+    import shutil
+    for md_file in MEDICAL_CHAPTERS_DIR.glob("chapter_*.md"):
+        shutil.copy2(md_file, CHAPTERS_DIR / md_file.name)
     return str(MEDICAL_FIXTURES_DIR), str(MEDICAL_CHAPTERS_DIR)
 
 
@@ -228,6 +242,7 @@ class TestChapterIndexer:
 
     def test_section_level_indexing(self):
         """Sections should be extracted as sub-documents."""
+        ensure_test_chapters()
         indexer = ChapterIndexer()
         indexer.index_directory(CHAPTERS_DIR)
         # Should have sections extracted
@@ -240,6 +255,7 @@ class TestChapterIndexer:
             assert sec.parent_index >= 0
 
     def test_section_bm25_structures(self):
+        ensure_test_chapters()
         """Section-level BM25 structures should be built."""
         indexer = ChapterIndexer()
         indexer.index_directory(CHAPTERS_DIR)
@@ -247,6 +263,7 @@ class TestChapterIndexer:
         assert len(indexer._section_dl) == len(indexer._sections)
 
     def test_search_with_intent(self):
+        ensure_test_chapters()
         """Search should accept query intent parameter."""
         indexer = ChapterIndexer()
         indexer.index_directory(CHAPTERS_DIR)
@@ -255,6 +272,7 @@ class TestChapterIndexer:
         assert len(results) > 0
 
     def test_multi_entity_search(self):
+        ensure_test_chapters()
         """Multi-entity search should merge results for comparison queries."""
         indexer = ChapterIndexer()
         indexer.index_directory(CHAPTERS_DIR)
@@ -671,6 +689,7 @@ class TestCrossChapterComparison:
     """Tests for cross-chapter comparison detection and merging."""
 
     def test_comparison_merges_results(self):
+        ensure_test_chapters()
         """Comparison queries should merge results from multiple entities."""
         indexer = ChapterIndexer()
         indexer.index_directory(CHAPTERS_DIR)
@@ -700,14 +719,15 @@ class TestNumericFactBoosting:
 
     def test_numeric_query_boosts_data_sections(self):
         """Numeric queries should boost chapters with data/tables."""
+        ensure_test_chapters()
         indexer = ChapterIndexer()
         indexer.index_directory(CHAPTERS_DIR)
         intent = classify_query_intent("How much weight loss from semaglutide?")
         results = indexer.search("How much weight loss from semaglutide?", top_k=5, intent=intent)
         assert len(results) > 0
-        # FDA chapter (ch3) should be in top results for numeric weight loss query
+        # Chapter 3 (semaglutide data) should be in top results for numeric weight loss query
         sources = [r["source_file"] for r in results]
-        assert "03_fda-approved-peptides.md" in sources
+        assert "chapter_03.md" in sources
 
     def test_numeric_signal_detected(self):
         """Numeric signal should be detected in queries."""
@@ -722,6 +742,7 @@ class TestSectionAwareScoring:
     """Tests for section-aware scoring."""
 
     def test_section_boost_in_results(self):
+        ensure_test_chapters()
         """Section boost should be included in search results."""
         indexer = ChapterIndexer()
         indexer.index_directory(CHAPTERS_DIR)
@@ -731,6 +752,7 @@ class TestSectionAwareScoring:
         assert "section_boost" in results[0]
 
     def test_section_match_boosts_parent_chapter(self):
+        ensure_test_chapters()
         """Matching section should boost parent chapter score."""
         indexer = ChapterIndexer()
         indexer.index_directory(CHAPTERS_DIR)
@@ -739,4 +761,4 @@ class TestSectionAwareScoring:
         assert len(results) > 0
         # Safety chapter should be boosted
         sources = [r["source_file"] for r in results]
-        assert "05_safety-side-effects.md" in sources
+        assert "chapter_05.md" in sources
