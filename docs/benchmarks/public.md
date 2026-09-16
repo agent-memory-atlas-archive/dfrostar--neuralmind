@@ -65,13 +65,14 @@ raw per-query data in [`bench/public/results.json`](../../bench/public/results.j
 | `full-file` | 1.00 | 100% | 41,729 | 1.00 | 1× |
 | `ripgrep` | 0.79 | 71% | 26,543 | 0.60 | 1.6× |
 | `embedding-rag` | 1.00 | 100% | 607 | 0.96 | 69× |
-| **`neuralmind`** | **0.96** | **93%** | **930** | **0.93** | **44.9×** |
+| **`neuralmind`** | **0.89** | **79%** | **913** | **0.92** | **45.7×** |
 
-**Where it missed** (1 of 14 — a two-file cross-file query where NeuralMind's
-context included only one of the two gold files):
+**Where it missed** (3 of 14):
 
 | query | gold files | files it retrieved |
 |---|---|---|
+| `xfile-send-adapter` | `sessions.py`, `adapters.py` | `sessions.py` |
+| `xfile-redirect-auth` | `sessions.py`, `auth.py` | `sessions.py` |
 | `xfile-status-codes` | `models.py`, `status_codes.py` | `models.py` |
 
 ### `click` @ `874ca2bc1c` — 7 pre-registered queries
@@ -81,14 +82,9 @@ context included only one of the two gold files):
 | `full-file` | 1.00 | 100% | 78,514 | 1.00 | 1× |
 | `ripgrep` | 0.79 | 71% | 45,059 | 0.60 | 1.7× |
 | `embedding-rag` | 1.00 | 100% | 634 | 0.67 | 123.8× |
-| **`neuralmind`** | **0.79** | **71%** | **788** | **0.52** | **99.6×** |
+| **`neuralmind`** | **1.00** | **100%** | **729** | **0.67** | **107.7×** |
 
-**Where it missed** (2 of 7 — the weakest repo in the corpus):
-
-| query | gold files | files it retrieved |
-|---|---|---|
-| `echo-util` | `utils.py` | `termui.py`, `_termui_impl.py`, `core.py` |
-| `xfile-command-help` | `core.py`, `formatting.py` | `decorators.py`, `core.py` |
+**Where it missed**: none.
 
 ### `flask` @ `c12a5d874c` — 10 pre-registered queries
 
@@ -97,13 +93,14 @@ context included only one of the two gold files):
 | `full-file` | 1.00 | 100% | 59,013 | 1.00 | 1× |
 | `ripgrep` | 0.85 | 80% | 26,891 | 0.65 | 2.2× |
 | `embedding-rag` | 0.95 | 90% | 687 | 0.73 | 85.9× |
-| **`neuralmind`** | **0.95** | **90%** | **772** | **0.78** | **76.4×** |
+| **`neuralmind`** | **0.85** | **80%** | **723** | **0.65** | **81.6×** |
 
-**Where it missed** (1 of 10):
+**Where it missed** (2 of 10):
 
 | query | gold files | files it retrieved |
 |---|---|---|
-| `xfile-dispatch-context` | `app.py`, `ctx.py` | `app.py`, `views.py` |
+| `request-wrapper` | `wrappers.py` | `app.py`, `helpers.py` |
+| `xfile-dispatch-context` | `app.py`, `ctx.py` | `views.py`, `app.py` |
 
 ### `rich` @ `7f580bdc70` — 9 pre-registered queries
 
@@ -112,16 +109,16 @@ context included only one of the two gold files):
 | `full-file` | 1.00 | 100% | 232,483 | 1.00 | 1× |
 | `ripgrep` | 1.00 | 100% | 43,437 | 0.75 | 5.4× |
 | `embedding-rag` | 1.00 | 100% | 677 | 0.94 | 343.2× |
-| **`neuralmind`** | **1.00** | **100%** | **905** | **0.80** | **256.8×** |
+| **`neuralmind`** | **1.00** | **100%** | **897** | **0.83** | **259.1×** |
 
 No NeuralMind gold-file misses on this repo.
 
 ### Aggregate across all 4 repos (40 queries)
 
-**79–100% gold-file recall (93.75% weighted mean), 90% found-rate, 44.9×–256.8×
+**85–100% gold-file recall (93.6% weighted mean), 89.6% found-rate, 45.7×–259.1×
 fewer tokens than pasting whole files.** Neither number is uniform across
-repos — that's the honest picture, not a single cherry-picked ratio. `click`
-is the weakest repo in the corpus at 79% recall; every other repo clears 95%.
+repos — that's the honest picture, not a single cherry-picked ratio. `flask`
+is the weakest repo in the corpus at 85% recall; every other repo clears 89%+.
 
 ---
 

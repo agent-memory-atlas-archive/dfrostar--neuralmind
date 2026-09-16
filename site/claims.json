@@ -22,28 +22,28 @@
       "evidence": "reproducible"
     },
     {
-      "value": 44.9,
+      "value": 45.7,
       "context": "requests @ 0e322af877 — tokens vs full-file baseline.",
       "source": "docs/benchmarks/public.md",
       "reproduce": "python -m evals.public.run",
       "evidence": "reproducible"
     },
     {
-      "value": 99.6,
+      "value": 107.7,
       "context": "click @ 874ca2bc1c — tokens vs full-file baseline.",
       "source": "docs/benchmarks/public.md",
       "reproduce": "python -m evals.public.run",
       "evidence": "reproducible"
     },
     {
-      "value": 76.4,
+      "value": 81.6,
       "context": "flask @ c12a5d874c — tokens vs full-file baseline.",
       "source": "docs/benchmarks/public.md",
       "reproduce": "python -m evals.public.run",
       "evidence": "reproducible"
     },
     {
-      "value": 256.8,
+      "value": 259.1,
       "context": "rich @ 7f580bdc70 — tokens vs full-file baseline.",
       "source": "docs/benchmarks/public.md",
       "reproduce": "python -m evals.public.run",
