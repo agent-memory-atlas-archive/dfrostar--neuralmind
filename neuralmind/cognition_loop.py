@@ -32,9 +32,8 @@ import os
 import sqlite3
 import time
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -370,7 +369,7 @@ class CognitionLoop:
 
                 # Promote clusters with >= synthesis_min_cluster nodes
                 promoted = 0
-                for root, members in clusters.items():
+                for _root, members in clusters.items():
                     if len(members) >= self.config.synthesis_min_cluster:
                         # Promote all edges in this cluster to LTP
                         for i in range(len(members)):

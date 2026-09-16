@@ -160,7 +160,10 @@ class ChapterIndexer:
         self._section_data = []
         for idx, (text, source_file, chapter_name) in enumerate(
             zip(
-                self._texts, self._ids, [self._metadatas[i]["chapter_name"] for i in range(self._n)]
+                self._texts,
+                self._ids,
+                [self._metadatas[i]["chapter_name"] for i in range(self._n)],
+                strict=True,
             )
         ):
             sections = self._extract_sections(text, source_file, chapter_name, idx)
@@ -277,7 +280,7 @@ class ChapterIndexer:
             try:
                 q_vec = self._embedder.embed([query])[0]
                 for i, doc_vec in enumerate(self._embeddings):
-                    dot = sum(a * bb for a, bb in zip(q_vec, doc_vec))
+                    dot = sum(a * bb for a, bb in zip(q_vec, doc_vec, strict=True))
                     nq = math.sqrt(sum(a * a for a in q_vec))
                     nd = math.sqrt(sum(bb * bb for bb in doc_vec))
                     if nq > 0 and nd > 0:
@@ -294,7 +297,7 @@ class ChapterIndexer:
             nq = math.sqrt(sum(a * a for a in q_vec))
             if nq > 0:
                 for i, doc_vec in enumerate(self._embeddings):
-                    dot = sum(a * bb for a, bb in zip(q_vec, doc_vec))
+                    dot = sum(a * bb for a, bb in zip(q_vec, doc_vec, strict=True))
                     nd = math.sqrt(sum(bb * bb for bb in doc_vec))
                     if nd > 0:
                         vec_scores[i] = dot / (nq * nd)

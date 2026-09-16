@@ -37,7 +37,6 @@ TERMINOLOGY_MAP: dict[str, list[str]] = {
     "byetta": ["exenatide", "GLP-1 receptor agonist", "diabetes"],
     "adlyxin": ["lixisenatide", "GLP-1 receptor agonist", "diabetes"],
     "symlin": ["pramlintide", "amylin analog", "diabetes"],
-    "victoza": ["liraglutide", "GLP-1 receptor agonist"],
     # ============================================================
     # Drug Classes
     # ============================================================
@@ -404,7 +403,6 @@ TERMINOLOGY_MAP: dict[str, list[str]] = {
     "mechanism of action": ["MOA", "how it works", "pharmacology", "receptor"],
     "pharmacology": ["drug action", "mechanism", "pharmacokinetics", "pharmacodynamics"],
     "efficacy": ["effectiveness", "how well it works", "clinical trial"],
-    "bioequivalence": ["equivalent", "generic", "same effect"],
     "half-life": ["elimination", "duration", "pharmacokinetics"],
     "clearance": ["elimination", "pharmacokinetics", "metabolism"],
     "contraindicated": ["should not be used", "warning", "risk"],

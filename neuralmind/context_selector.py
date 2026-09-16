@@ -2111,7 +2111,7 @@ class ContextSelector:
 
             # Context budget enforcement: trim if over budget
             if context_budget is not None and context_budget > 0:
-                from .context_budget import count_tokens, check_budget_warning
+                from .context_budget import check_budget_warning, count_tokens
 
                 used = count_tokens(result.context)
                 if used > context_budget:
