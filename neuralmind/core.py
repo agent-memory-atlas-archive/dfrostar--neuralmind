@@ -1315,6 +1315,7 @@ class NeuralMind:
         trace: bool = False,
         trace_verbose: bool = False,
         query_type: str = "auto",
+        context_budget: int | None = None,
     ) -> ContextResult:
         """
         Get optimized context for answering a question.
@@ -1329,6 +1330,9 @@ class NeuralMind:
             trace_verbose: If True (with trace), keep full candidate/hit lists.
             query_type: Filter results — 'code' restricts to source code, 'docs'
                 to documentation, 'auto' detects intent (default).
+            context_budget: Optional token budget. If provided, the assembled
+                context is trimmed to fit within this budget by removing
+                lower-priority layers (L3 → L2 → L1). L0 identity is never trimmed.
 
         Returns:
             ContextResult with relevant context and token budget
@@ -1341,7 +1345,8 @@ class NeuralMind:
             result = self._query_prose(question)
         else:
             result = self.selector.get_query_context(
-                question, trace=trace, trace_verbose=trace_verbose, query_type=query_type
+                question, trace=trace, trace_verbose=trace_verbose, query_type=query_type,
+                context_budget=context_budget,
             )
         if self.hybrid_context:
             highlights = self._build_hybrid_highlights(question, result.top_search_hits)

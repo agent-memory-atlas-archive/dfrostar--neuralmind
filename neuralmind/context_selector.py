@@ -2066,7 +2066,8 @@ class ContextSelector:
         )
 
     def get_query_context(
-        self, query: str, trace: bool = False, trace_verbose: bool = False, query_type: str = "auto"
+        self, query: str, trace: bool = False, trace_verbose: bool = False, query_type: str = "auto",
+        context_budget: int | None = None,
     ) -> ContextResult:
         """
         Get full context for a specific query.
@@ -2079,6 +2080,10 @@ class ContextSelector:
             trace: If True, attach a per-layer retrieval trace
             trace_verbose: If True (with trace), keep full candidate/hit lists
             query_type: Filter results — 'code', 'docs', or 'auto' (default)
+            context_budget: Optional token budget override. If provided, the
+                assembled context is trimmed to fit within this budget by
+                removing lower-priority layers (L3 → L2 → L1). L0 identity
+                is never trimmed.
 
         Returns:
             ContextResult with relevant context and search results
@@ -2099,8 +2104,131 @@ class ContextSelector:
             if query_type != "auto":
                 intent = self._detect_intent(query)
                 result.top_search_hits = self._apply_intent_boost(result.top_search_hits, intent)
+
+            # Context budget enforcement: trim if over budget
+            if context_budget is not None and context_budget > 0:
+                from .context_budget import count_tokens, check_budget_warning
+
+                used = count_tokens(result.context)
+                if used > context_budget:
+                    # Trim L3 search results first, then L2, then L1
+                    trimmed_context, layers_trimmed = self._trim_context_to_budget(
+                        result.context, context_budget
+                    )
+                    result.context = trimmed_context
+                    # Update budget tracking
+                    result.budget.l3_search = 0 if "L3" in layers_trimmed else result.budget.l3_search
+                    result.budget.l2_ondemand = 0 if "L2" in layers_trimmed else result.budget.l2_ondemand
+                    result.budget.l1_summary = 0 if "L1" in layers_trimmed else result.budget.l1_summary
+                    # Log budget warning
+                    if check_budget_warning(used, context_budget):
+                        import logging
+                        logging.getLogger(__name__).warning(
+                            "[context_budget] query exceeded budget: %d/%d tokens (trimmed: %s)",
+                            used, context_budget, layers_trimmed,
+                        )
+
             if self._trace is not None:
                 result.trace = self._trace.to_dict()
             return result
         finally:
             self._trace = None
+
+    def _trim_context_to_budget(
+        self, context: str, budget_tokens: int
+    ) -> tuple[str, list[str]]:
+        """Trim context to fit within budget, removing lower-priority layers first.
+
+        Layer priority (highest to lowest):
+        - L0: Identity (project name, description) — never trimmed
+        - L1: Summary (architecture, main components) — trimmed only if critical
+        - L2: On-demand modules — trimmed before L1
+        - L3: Search results — trimmed first
+
+        Returns:
+            (trimmed_context, layers_trimmed)
+        """
+        from .context_budget import count_tokens
+
+        current_tokens = count_tokens(context)
+        if current_tokens <= budget_tokens:
+            return context, []
+
+        layers_trimmed: list[str] = []
+
+        # Split by layer markers (L3: Search results, L2: OnDemand, L1: Summary)
+        # The context is assembled as "\n".join(context_parts) in get_context
+        # We look for the layer labels that were added in layers_used
+        l3_marker = "L3:Search("
+        l2_marker = "L2:OnDemand("
+        l1_marker = "L1:Summary"
+
+        # Split context into sections by layer markers
+        sections: list[tuple[str, str]] = []  # (layer_name, content)
+        remaining = context
+
+        # Find L3 section
+        if l3_marker in remaining:
+            idx = remaining.index(l3_marker)
+            # Find the start of the L3 content (after the marker line)
+            l3_start = remaining.find("\n", idx)
+            if l3_start == -1:
+                l3_start = idx
+            else:
+                l3_start += 1
+            sections.append(("L3", remaining[l3_start:]))
+            remaining = remaining[:idx]
+
+        # Find L2 section
+        if l2_marker in remaining:
+            idx = remaining.index(l2_marker)
+            l2_start = remaining.find("\n", idx)
+            if l2_start == -1:
+                l2_start = idx
+            else:
+                l2_start += 1
+            sections.append(("L2", remaining[l2_start:]))
+            remaining = remaining[:idx]
+
+        # Find L1 section
+        if l1_marker in remaining:
+            idx = remaining.index(l1_marker)
+            l1_start = remaining.find("\n", idx)
+            if l1_start == -1:
+                l1_start = idx
+            else:
+                l1_start += 1
+            sections.append(("L1", remaining[l1_start:]))
+            remaining = remaining[:idx]
+
+        # Priority order: L3 first (trim search results), then L2, then L1
+        priority_order = ["L3", "L2", "L1"]
+
+        for layer in priority_order:
+            if current_tokens <= budget_tokens:
+                break
+            for i, (name, content) in enumerate(sections):
+                if name == layer and content.strip():
+                    # Remove this layer
+                    sections[i] = (name, "")
+                    layers_trimmed.append(layer)
+                    # Reassemble
+                    context = "".join(content for _, content in sections)
+                    current_tokens = count_tokens(context)
+                    break
+
+        # If still over budget, truncate from the end (L3 search results)
+        if current_tokens > budget_tokens:
+            # Binary search for the truncation point
+            low, high = 0, len(context)
+            while low < high:
+                mid = (low + high + 1) // 2
+                if count_tokens(context[:mid]) <= budget_tokens:
+                    low = mid
+                else:
+                    high = mid - 1
+            context = context[:low]
+            if "L3" not in layers_trimmed:
+                layers_trimmed.append("L3")
+
+        return context, layers_trimmed
