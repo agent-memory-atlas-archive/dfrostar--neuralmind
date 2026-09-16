@@ -1,41 +1,41 @@
 {
-  "timestamp": 1789491281.6774669,
+  "timestamp": 1789522347.7897968,
   "neuralmind_version": "3.10.0",
   "project": "peptide-patient-guide",
   "total_nodes": 61,
   "total_queries": 14,
   "aggregates": {
-    "recall_at_1": 0.6428571428571429,
-    "recall_at_3": 0.8095238095238095,
-    "recall_at_5": 0.9523809523809524,
-    "precision_at_5": 0.38571428571428573,
-    "mrr": 0.7880952380952381,
-    "ndcg_at_5": 0.8019582460269622,
-    "hit_rate": 1.0,
-    "avg_latency_ms": 2331.630791936602,
-    "median_latency_ms": 522.799015045166,
-    "p95_latency_ms": 25340.121507644653,
-    "total_facts_found": 30,
+    "recall_at_1": 0.7857142857142857,
+    "recall_at_3": 0.7380952380952381,
+    "recall_at_5": 0.869047619047619,
+    "precision_at_5": 0.3726190476190476,
+    "mrr": 0.8273809523809524,
+    "ndcg_at_5": 0.7868489336662935,
+    "hit_rate": 0.9285714285714286,
+    "avg_latency_ms": 921.2974991117205,
+    "median_latency_ms": 390.1786804199219,
+    "p95_latency_ms": 7615.720748901367,
+    "total_facts_found": 48,
     "total_facts": 57
   },
   "by_shape": {
-    "cross-chapter": {
-      "count": 2,
-      "recall_at_5": 0.8333333333333333,
-      "mrr": 0.41666666666666663,
-      "avg_latency_ms": 850.3535985946655
-    },
     "focused": {
       "count": 10,
-      "recall_at_5": 0.9666666666666666,
-      "mrr": 0.8699999999999999,
-      "avg_latency_ms": 539.355993270874
+      "recall_at_5": 0.85,
+      "mrr": 0.7583333333333333,
+      "avg_latency_ms": 444.2086696624756
     },
     "identity": {
       "count": 2,
       "recall_at_5": 1.0,
-      "mrr": 0.75,
-      "avg_latency_ms": 12774.281978607178
+      "mrr": 1.0,
+      "avg_latency_ms": 3921.19562625885
+    },
+    "cross-chapter": {
+      "count": 2,
+      "recall_at_5": 0.8333333333333333,
+      "mrr": 1.0,
+      "avg_latency_ms": 306.84351921081543
     }
   },
   "queries": [
@@ -43,27 +43,25 @@
       "id": "peptide-definition",
       "question": "What exactly is a peptide and how is it different from a protein?",
       "shape": "identity",
-      "recall_at_1": 0.0,
+      "recall_at_1": 1.0,
       "recall_at_3": 1.0,
       "recall_at_5": 1.0,
       "precision_at_5": 0.2,
-      "mrr": 0.5,
-      "ndcg_at_5": 0.6666666666666667,
+      "mrr": 1.0,
+      "ndcg_at_5": 1.0,
       "hit_rate": 1.0,
-      "latency_ms": 25340.121507644653,
+      "latency_ms": 7615.720748901367,
       "ranked_chapters": [
-        "03_fda-approved-peptides.md",
         "01_what-are-peptides.md",
-        "00_front-matter.md",
         "04_grey-market-compounds.md",
         "06_regulatory-landscape.md",
-        "99_back-matter.md",
-        "02_chapter-2.md"
+        "02_chapter-2.md",
+        "03_fda-approved-peptides.md"
       ],
       "expected_chapters": [
         "01_what-are-peptides.md"
       ],
-      "facts_found": 1,
+      "facts_found": 4,
       "facts_total": 4
     },
     {
@@ -72,28 +70,25 @@
       "shape": "focused",
       "recall_at_1": 1.0,
       "recall_at_3": 0.6666666666666666,
-      "recall_at_5": 0.6666666666666666,
-      "precision_at_5": 0.4,
+      "recall_at_5": 1.0,
+      "precision_at_5": 0.6,
       "mrr": 1.0,
-      "ndcg_at_5": 0.7974683544303797,
+      "ndcg_at_5": 0.8962025316455696,
       "hit_rate": 1.0,
-      "latency_ms": 889.671802520752,
+      "latency_ms": 180.66835403442383,
       "ranked_chapters": [
-        "03_fda-approved-peptides.md",
-        "01_what-are-peptides.md",
         "02_chapter-2.md",
-        "07_future-of-peptide-therapy.md",
-        "06_regulatory-landscape.md",
-        "99_back-matter.md",
         "05_safety-side-effects.md",
-        "98_claims-register-appendix.md"
+        "01_what-are-peptides.md",
+        "03_fda-approved-peptides.md",
+        "08_questions-to-ask-prescriber.md"
       ],
       "expected_chapters": [
         "02_chapter-2.md",
         "03_fda-approved-peptides.md",
         "05_safety-side-effects.md"
       ],
-      "facts_found": 2,
+      "facts_found": 4,
       "facts_total": 4
     },
     {
@@ -105,49 +100,42 @@
       "recall_at_5": 1.0,
       "precision_at_5": 0.6,
       "mrr": 1.0,
-      "ndcg_at_5": 0.8730158730158731,
+      "ndcg_at_5": 0.8095238095238095,
       "hit_rate": 1.0,
-      "latency_ms": 784.282922744751,
+      "latency_ms": 230.2267551422119,
       "ranked_chapters": [
         "06_regulatory-landscape.md",
-        "03_fda-approved-peptides.md",
         "08_questions-to-ask-prescriber.md",
+        "03_fda-approved-peptides.md",
         "04_grey-market-compounds.md",
-        "98_claims-register-appendix.md",
-        "07_future-of-peptide-therapy.md",
-        "02_chapter-2.md",
-        "01_what-are-peptides.md",
-        "00_front-matter.md"
+        "02_chapter-2.md"
       ],
       "expected_chapters": [
         "03_fda-approved-peptides.md",
         "06_regulatory-landscape.md",
         "08_questions-to-ask-prescriber.md"
       ],
-      "facts_found": 0,
+      "facts_found": 1,
       "facts_total": 4
     },
     {
       "id": "pcac-recommendation",
       "question": "What is the difference between FDA approval and PCAC recommendation?",
       "shape": "cross-chapter",
-      "recall_at_1": 0.0,
-      "recall_at_3": 0.5,
+      "recall_at_1": 1.0,
+      "recall_at_3": 1.0,
       "recall_at_5": 1.0,
       "precision_at_5": 0.4,
-      "mrr": 0.3333333333333333,
-      "ndcg_at_5": 0.5399999999999999,
+      "mrr": 1.0,
+      "ndcg_at_5": 1.0,
       "hit_rate": 1.0,
-      "latency_ms": 522.0999717712402,
+      "latency_ms": 208.5418701171875,
       "ranked_chapters": [
-        "98_claims-register-appendix.md",
-        "03_fda-approved-peptides.md",
         "04_grey-market-compounds.md",
         "06_regulatory-landscape.md",
-        "02_chapter-2.md",
-        "01_what-are-peptides.md",
         "08_questions-to-ask-prescriber.md",
-        "00_front-matter.md"
+        "03_fda-approved-peptides.md",
+        "02_chapter-2.md"
       ],
       "expected_chapters": [
         "04_grey-market-compounds.md",
@@ -162,45 +150,43 @@
       "shape": "focused",
       "recall_at_1": 0.0,
       "recall_at_3": 0.0,
-      "recall_at_5": 1.0,
-      "precision_at_5": 0.2,
-      "mrr": 0.2,
-      "ndcg_at_5": 0.33333333333333337,
-      "hit_rate": 1.0,
-      "latency_ms": 424.04842376708984,
+      "recall_at_5": 0.0,
+      "precision_at_5": 0.0,
+      "mrr": 0.0,
+      "ndcg_at_5": 0.0,
+      "hit_rate": 0.0,
+      "latency_ms": 167.61183738708496,
       "ranked_chapters": [
+        "02_chapter-2.md",
         "06_regulatory-landscape.md",
+        "07_future-of-peptide-therapy.md",
         "05_safety-side-effects.md",
-        "98_claims-register-appendix.md",
-        "08_questions-to-ask-prescriber.md",
-        "03_fda-approved-peptides.md",
-        "99_back-matter.md"
+        "08_questions-to-ask-prescriber.md"
       ],
       "expected_chapters": [
         "03_fda-approved-peptides.md"
       ],
-      "facts_found": 1,
+      "facts_found": 2,
       "facts_total": 3
     },
     {
       "id": "retatrutide-triple-agonist",
       "question": "What is retatrutide and how does it differ from semaglutide?",
       "shape": "focused",
-      "recall_at_1": 1.0,
-      "recall_at_3": 1.0,
+      "recall_at_1": 0.0,
+      "recall_at_3": 0.5,
       "recall_at_5": 1.0,
       "precision_at_5": 0.4,
-      "mrr": 1.0,
-      "ndcg_at_5": 1.0,
+      "mrr": 0.3333333333333333,
+      "ndcg_at_5": 0.5399999999999999,
       "hit_rate": 1.0,
-      "latency_ms": 823.6329555511475,
+      "latency_ms": 302.9625415802002,
       "ranked_chapters": [
-        "07_future-of-peptide-therapy.md",
-        "03_fda-approved-peptides.md",
+        "01_what-are-peptides.md",
         "05_safety-side-effects.md",
-        "98_claims-register-appendix.md",
-        "08_questions-to-ask-prescriber.md",
-        "99_back-matter.md"
+        "03_fda-approved-peptides.md",
+        "07_future-of-peptide-therapy.md",
+        "08_questions-to-ask-prescriber.md"
       ],
       "expected_chapters": [
         "03_fda-approved-peptides.md",
@@ -213,26 +199,25 @@
       "id": "bpc157-grey-market",
       "question": "What is BPC-157 and why is it controversial?",
       "shape": "focused",
-      "recall_at_1": 0.0,
+      "recall_at_1": 1.0,
       "recall_at_3": 1.0,
       "recall_at_5": 1.0,
       "precision_at_5": 0.2,
-      "mrr": 0.5,
-      "ndcg_at_5": 0.6666666666666667,
+      "mrr": 1.0,
+      "ndcg_at_5": 1.0,
       "hit_rate": 1.0,
-      "latency_ms": 554.4424057006836,
+      "latency_ms": 390.1786804199219,
       "ranked_chapters": [
-        "01_what-are-peptides.md",
         "04_grey-market-compounds.md",
+        "05_safety-side-effects.md",
+        "06_regulatory-landscape.md",
         "02_chapter-2.md",
-        "00_front-matter.md",
-        "99_back-matter.md",
-        "05_safety-side-effects.md"
+        "01_what-are-peptides.md"
       ],
       "expected_chapters": [
         "04_grey-market-compounds.md"
       ],
-      "facts_found": 1,
+      "facts_found": 4,
       "facts_total": 4
     },
     {
@@ -240,19 +225,17 @@
       "question": "What is the black box warning on semaglutide about?",
       "shape": "focused",
       "recall_at_1": 1.0,
-      "recall_at_3": 0.5,
+      "recall_at_3": 1.0,
       "recall_at_5": 1.0,
-      "precision_at_5": 0.4,
+      "precision_at_5": 0.6666666666666666,
       "mrr": 1.0,
-      "ndcg_at_5": 0.911111111111111,
+      "ndcg_at_5": 0.9444444444444444,
       "hit_rate": 1.0,
-      "latency_ms": 518.7299251556396,
+      "latency_ms": 445.28913497924805,
       "ranked_chapters": [
         "05_safety-side-effects.md",
         "08_questions-to-ask-prescriber.md",
-        "98_claims-register-appendix.md",
-        "03_fda-approved-peptides.md",
-        "99_back-matter.md"
+        "03_fda-approved-peptides.md"
       ],
       "expected_chapters": [
         "03_fda-approved-peptides.md",
@@ -265,24 +248,20 @@
       "id": "tirzepatide-dual-agonist",
       "question": "What is tirzepatide and how does it differ from semaglutide?",
       "shape": "focused",
-      "recall_at_1": 1.0,
-      "recall_at_3": 1.0,
-      "recall_at_5": 1.0,
-      "precision_at_5": 0.4,
-      "mrr": 1.0,
-      "ndcg_at_5": 0.8518518518518519,
+      "recall_at_1": 0.0,
+      "recall_at_3": 0.0,
+      "recall_at_5": 0.5,
+      "precision_at_5": 0.2,
+      "mrr": 0.25,
+      "ndcg_at_5": 0.3111111111111111,
       "hit_rate": 1.0,
-      "latency_ms": 522.799015045166,
+      "latency_ms": 824.4988918304443,
       "ranked_chapters": [
-        "07_future-of-peptide-therapy.md",
-        "03_fda-approved-peptides.md",
-        "99_back-matter.md",
-        "00_front-matter.md",
-        "98_claims-register-appendix.md",
         "01_what-are-peptides.md",
-        "08_questions-to-ask-prescriber.md",
-        "06_regulatory-landscape.md",
-        "05_safety-side-effects.md"
+        "05_safety-side-effects.md",
+        "02_chapter-2.md",
+        "03_fda-approved-peptides.md",
+        "04_grey-market-compounds.md"
       ],
       "expected_chapters": [
         "03_fda-approved-peptides.md",
@@ -298,49 +277,40 @@
       "recall_at_1": 1.0,
       "recall_at_3": 1.0,
       "recall_at_5": 1.0,
-      "precision_at_5": 0.4,
+      "precision_at_5": 0.5,
       "mrr": 1.0,
-      "ndcg_at_5": 1.0,
+      "ndcg_at_5": 0.9444444444444444,
       "hit_rate": 1.0,
-      "latency_ms": 410.3970527648926,
+      "latency_ms": 386.624813079834,
       "ranked_chapters": [
         "07_future-of-peptide-therapy.md",
+        "05_safety-side-effects.md",
         "02_chapter-2.md",
-        "08_questions-to-ask-prescriber.md",
-        "01_what-are-peptides.md",
-        "04_grey-market-compounds.md",
-        "00_front-matter.md",
-        "98_claims-register-appendix.md",
         "06_regulatory-landscape.md"
       ],
       "expected_chapters": [
         "02_chapter-2.md",
         "07_future-of-peptide-therapy.md"
       ],
-      "facts_found": 1,
+      "facts_found": 3,
       "facts_total": 4
     },
     {
       "id": "grey-market-risks",
       "question": "What are the risks of buying peptides from research chemical websites?",
       "shape": "cross-chapter",
-      "recall_at_1": 0.0,
+      "recall_at_1": 1.0,
       "recall_at_3": 0.6666666666666666,
       "recall_at_5": 0.6666666666666666,
-      "precision_at_5": 0.4,
-      "mrr": 0.5,
-      "ndcg_at_5": 0.5873015873015873,
+      "precision_at_5": 0.5,
+      "mrr": 1.0,
+      "ndcg_at_5": 0.7301587301587302,
       "hit_rate": 1.0,
-      "latency_ms": 1178.6072254180908,
+      "latency_ms": 405.14516830444336,
       "ranked_chapters": [
-        "08_questions-to-ask-prescriber.md",
-        "04_grey-market-compounds.md",
         "06_regulatory-landscape.md",
-        "01_what-are-peptides.md",
-        "00_front-matter.md",
-        "05_safety-side-effects.md",
-        "99_back-matter.md",
-        "03_fda-approved-peptides.md",
+        "04_grey-market-compounds.md",
+        "08_questions-to-ask-prescriber.md",
         "02_chapter-2.md"
       ],
       "expected_chapters": [
@@ -348,7 +318,7 @@
         "05_safety-side-effects.md",
         "06_regulatory-landscape.md"
       ],
-      "facts_found": 1,
+      "facts_found": 3,
       "facts_total": 4
     },
     {
@@ -362,14 +332,13 @@
       "mrr": 1.0,
       "ndcg_at_5": 1.0,
       "hit_rate": 1.0,
-      "latency_ms": 226.3329029083252,
+      "latency_ms": 754.1077136993408,
       "ranked_chapters": [
         "02_chapter-2.md",
-        "01_what-are-peptides.md",
-        "00_front-matter.md",
-        "06_regulatory-landscape.md",
         "07_future-of-peptide-therapy.md",
-        "05_safety-side-effects.md"
+        "05_safety-side-effects.md",
+        "01_what-are-peptides.md",
+        "08_questions-to-ask-prescriber.md"
       ],
       "expected_chapters": [
         "02_chapter-2.md"
@@ -384,22 +353,21 @@
       "recall_at_1": 1.0,
       "recall_at_3": 1.0,
       "recall_at_5": 1.0,
-      "precision_at_5": 0.2,
+      "precision_at_5": 0.25,
       "mrr": 1.0,
       "ndcg_at_5": 1.0,
       "hit_rate": 1.0,
-      "latency_ms": 239.22252655029297,
+      "latency_ms": 759.9179744720459,
       "ranked_chapters": [
         "08_questions-to-ask-prescriber.md",
-        "99_back-matter.md",
+        "05_safety-side-effects.md",
         "06_regulatory-landscape.md",
-        "07_future-of-peptide-therapy.md",
-        "05_safety-side-effects.md"
+        "07_future-of-peptide-therapy.md"
       ],
       "expected_chapters": [
         "08_questions-to-ask-prescriber.md"
       ],
-      "facts_found": 2,
+      "facts_found": 4,
       "facts_total": 4
     },
     {
@@ -407,22 +375,24 @@
       "question": "Who are the authors of this book?",
       "shape": "identity",
       "recall_at_1": 1.0,
-      "recall_at_3": 1.0,
+      "recall_at_3": 0.5,
       "recall_at_5": 1.0,
-      "precision_at_5": 1.0,
+      "precision_at_5": 0.5,
       "mrr": 1.0,
-      "ndcg_at_5": 1.0,
+      "ndcg_at_5": 0.84,
       "hit_rate": 1.0,
-      "latency_ms": 208.44244956970215,
+      "latency_ms": 226.670503616333,
       "ranked_chapters": [
         "00_front-matter.md",
+        "01_what-are-peptides.md",
+        "02_chapter-2.md",
         "99_back-matter.md"
       ],
       "expected_chapters": [
         "00_front-matter.md",
         "99_back-matter.md"
       ],
-      "facts_found": 2,
+      "facts_found": 4,
       "facts_total": 4
     }
   ]

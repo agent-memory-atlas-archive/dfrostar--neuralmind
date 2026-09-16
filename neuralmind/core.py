@@ -28,6 +28,7 @@ import os
 import threading
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from neuralmind.state_dir import ensure_parent_dir
 
@@ -37,7 +38,7 @@ from . import querying, synapse_feedback
 from . import recent_queries as recent_queries_log
 from .audit import get_audit_trail
 from .backend_manager import BackendManager
-from .context_selector import ContextResult, ContextSelector
+from .context_selector import ContextResult, ContextSelector, TokenBudget
 from .memory import is_memory_logging_enabled, log_query_event, log_wakeup_event
 from .query_handler import QueryHandler
 from .structural import BLAST_VIEW_RELATION, StructuralIndex
@@ -171,7 +172,7 @@ class NeuralMind:
                 ``memory_namespace`` / the current git branch / ``personal``.
             scope: Index scope — 'all' (default), 'code', 'content', or 'docs'.
         """
-        self.project_path = Path(project_path)
+        self.project_path = Path(project_path).resolve()
         self.db_path = db_path
         self.backend_manager = BackendManager(
             project_path=str(self.project_path), db_path=db_path, backend=backend_type, scope=scope
@@ -206,6 +207,9 @@ class NeuralMind:
         # from the loaded graph at build() time; None until then or when the
         # NEURALMIND_STRUCTURAL kill switch is set.
         self._structural_index: StructuralIndex | None = None
+
+        # Medical retriever for prose projects (lazy: built on first prose query)
+        self._medical_retriever: Any | None = None
 
     @property
     def backend_name(self) -> str:
@@ -1329,9 +1333,15 @@ class NeuralMind:
             ContextResult with relevant context and token budget
         """
         self._ensure_built()
-        result = self.selector.get_query_context(
-            question, trace=trace, trace_verbose=trace_verbose, query_type=query_type
-        )
+
+        # Route prose/mixed projects through MedicalRetriever.
+        # ContextSelector remains the code path (unchanged).
+        if self.project_kind in ("prose", "mixed"):
+            result = self._query_prose(question)
+        else:
+            result = self.selector.get_query_context(
+                question, trace=trace, trace_verbose=trace_verbose, query_type=query_type
+            )
         if self.hybrid_context:
             highlights = self._build_hybrid_highlights(question, result.top_search_hits)
             if highlights:
@@ -1393,6 +1403,54 @@ class NeuralMind:
 
     def _build_hybrid_highlights(self, question: str, cached_hits: list[dict] | None = None) -> str:
         return querying.build_hybrid_highlights(self, question, cached_hits)
+
+    def _get_medical_retriever(self):
+        """Lazy-initialize MedicalRetriever for prose projects."""
+        if self._medical_retriever is None:
+            from neuralmind.medical_retriever import MedicalRetriever
+
+            chapters_dir = self.project_path / "chapters"
+            self._medical_retriever = MedicalRetriever(
+                project_path=str(self.project_path),
+                chapter_dir=str(chapters_dir),
+            )
+            self._medical_retriever.build()
+        return self._medical_retriever
+
+    def _query_prose(self, question: str) -> ContextResult:
+        """Query using MedicalRetriever for prose/mixed projects.
+
+        Formats results into ContextResult for API compatibility with
+        the code path. Includes confidence flags in the output context.
+        """
+        mr = self._get_medical_retriever()
+        result = mr.query(question, top_k=5)
+
+        # Build TokenBudget from MedicalRetriever metrics
+        budget = TokenBudget(
+            l0_identity=0,
+            l1_summary=0,
+            l2_ondemand=0,
+            l3_search=len(result.chapters) * 200,  # ~200 tokens per chapter
+        )
+
+        return ContextResult(
+            context=result.context,
+            budget=budget,
+            layers_used=["medical_retriever"],
+            search_hits=len(result.chapters),
+            reduction_ratio=10.0,  # estimated; prose docs are small
+            top_search_hits=[
+                {
+                    "source_file": ch["source_file"],
+                    "chapter_name": ch.get("chapter_name", ""),
+                    "score": ch["score"],
+                    "confidence": ch.get("confidence_label", "HIGH"),
+                }
+                for ch in result.chapters
+            ],
+            trace=None,
+        )
 
     def skeleton(self, file_path: str) -> str:
         """Return a compact skeleton view of a file using graph data.

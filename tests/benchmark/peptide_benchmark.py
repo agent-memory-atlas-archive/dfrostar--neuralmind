@@ -70,10 +70,20 @@ class BenchmarkResults:
 def extract_chapters_from_context(context_text: str) -> list[str]:
     found = []
     for line in context_text.split("\n"):
+        # Old format: filenames like chapters/01_what-are-peptides.md
         matches = re.findall(r"(?:chapters/)?(\d\d_[a-z][a-z0-9_-]*\.md)", line)
         for m in matches:
             if m not in found and m in CHAPTER_FILES:
                 found.append(m)
+        # New format: ## 01 What Are Peptides (Title Case from MedicalRetriever)
+        heading_match = re.match(r"^##\s+(\d\d)\s+(.+)", line)
+        if heading_match:
+            ch_num = heading_match.group(1)
+            # Find matching CHAPTER_FILE by number
+            for cf in CHAPTER_FILES:
+                if cf.startswith(ch_num) and cf not in found:
+                    found.append(cf)
+                    break
     return found
 
 
@@ -81,8 +91,12 @@ def extract_chapters_from_top_hits(ctx) -> list[str]:
     chapters = []
     if hasattr(ctx, "top_search_hits") and ctx.top_search_hits:
         for hit in ctx.top_search_hits:
-            meta = hit.get("metadata", {})
-            source = meta.get("source_file", "")
+            # New format: source_file is top-level
+            source = hit.get("source_file", "")
+            if not source:
+                # Old format: nested under metadata
+                meta = hit.get("metadata", {})
+                source = meta.get("source_file", "")
             if source:
                 chapter = Path(source).name
                 if chapter and chapter not in chapters and chapter in CHAPTER_FILES:

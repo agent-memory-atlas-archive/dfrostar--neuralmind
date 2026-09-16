@@ -1,6 +1,6 @@
 # NeuralMind Performance Report — Peptide Patient's Guide
 
-**Generated:** 2026-09-15 11:54:41
+**Generated:** 2026-09-15 20:32:27
 **NeuralMind Version:** 3.10.0
 **Project:** peptide-patient-guide
 **Index Size:** 61 nodes
@@ -12,16 +12,16 @@
 
 | Metric | Value | Grade |
 |--------|-------|-------|
-| Recall@1 | 64.3% | 🟡 |
-| Recall@3 | 81.0% | 🟢 |
-| Recall@5 | 95.2% | 🟢 |
-| Precision@5 | 38.6% | 🔴 |
-| MRR | 0.79 | 🟡 |
-| nDCG@5 | 0.80 | 🟢 |
-| Hit Rate | 100.0% | 🟢 |
-| Avg Latency | 2332ms | 🔴 |
-| P95 Latency | 25340ms | 🔴 |
-| Fact Recall | 30/57 (53%) | 🟡 |
+| Recall@1 | 78.6% | 🟢 |
+| Recall@3 | 73.8% | 🟡 |
+| Recall@5 | 86.9% | 🟡 |
+| Precision@5 | 37.3% | 🔴 |
+| MRR | 0.83 | 🟢 |
+| nDCG@5 | 0.79 | 🟡 |
+| Hit Rate | 92.9% | 🟢 |
+| Avg Latency | 921ms | 🟡 |
+| P95 Latency | 7616ms | 🔴 |
+| Fact Recall | 48/57 (84%) | 🟢 |
 
 ---
 
@@ -29,9 +29,9 @@
 
 | Shape | Count | Recall@5 | MRR | Avg Latency |
 |-------|-------|----------|-----|-------------|
-| cross-chapter | 2 | 83.3% | 0.42 | 850ms |
-| focused | 10 | 96.7% | 0.87 | 539ms |
-| identity | 2 | 100.0% | 0.75 | 12774ms |
+| cross-chapter | 2 | 83.3% | 1.00 | 307ms |
+| focused | 10 | 85.0% | 0.76 | 444ms |
+| identity | 2 | 100.0% | 1.00 | 3921ms |
 
 ---
 
@@ -39,33 +39,34 @@
 
 | ID | Shape | R@1 | R@3 | R@5 | MRR | nDCG@5 | Latency | Top Chapter |
 |----|-------|-----|-----|-----|-----|--------|---------|-------------|
-| peptide-definition | identity | 0.00 | 1.00 | 1.00 | 0.50 | 0.67 | 25340ms | 03_fda-approved-peptides.md |
-| glp1-mechanism | focused | 1.00 | 0.67 | 0.67 | 1.00 | 0.80 | 890ms | 03_fda-approved-peptides.md |
-| fda-approval-meaning | focused | 1.00 | 1.00 | 1.00 | 1.00 | 0.87 | 784ms | 06_regulatory-landscape.md |
-| pcac-recommendation | cross-chapter | 0.00 | 0.50 | 1.00 | 0.33 | 0.54 | 522ms | 98_claims-register-appendix.md |
-| weight-loss-semaglutide | focused | 0.00 | 0.00 | 1.00 | 0.20 | 0.33 | 424ms | 06_regulatory-landscape.md |
-| retatrutide-triple-agonist | focused | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 824ms | 07_future-of-peptide-therapy.md |
-| bpc157-grey-market | focused | 0.00 | 1.00 | 1.00 | 0.50 | 0.67 | 554ms | 01_what-are-peptides.md |
-| black-box-warning-thyroid | focused | 1.00 | 0.50 | 1.00 | 1.00 | 0.91 | 519ms | 05_safety-side-effects.md |
-| tirzepatide-dual-agonist | focused | 1.00 | 1.00 | 1.00 | 1.00 | 0.85 | 523ms | 07_future-of-peptide-therapy.md |
-| oral-peptide-delivery | focused | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 410ms | 07_future-of-peptide-therapy.md |
-| grey-market-risks | cross-chapter | 0.00 | 0.67 | 0.67 | 0.50 | 0.59 | 1179ms | 08_questions-to-ask-prescriber.md |
-| peptide-stability-refrigeration | focused | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 226ms | 02_chapter-2.md |
-| questions-to-ask-prescriber | focused | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 239ms | 08_questions-to-ask-prescriber.md |
-| book-authors | identity | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 208ms | 00_front-matter.md |
+| peptide-definition | identity | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 7616ms | 01_what-are-peptides.md |
+| glp1-mechanism | focused | 1.00 | 0.67 | 1.00 | 1.00 | 0.90 | 181ms | 02_chapter-2.md |
+| fda-approval-meaning | focused | 1.00 | 1.00 | 1.00 | 1.00 | 0.81 | 230ms | 06_regulatory-landscape.md |
+| pcac-recommendation | cross-chapter | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 209ms | 04_grey-market-compounds.md |
+| weight-loss-semaglutide | focused | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 168ms | 02_chapter-2.md |
+| retatrutide-triple-agonist | focused | 0.00 | 0.50 | 1.00 | 0.33 | 0.54 | 303ms | 01_what-are-peptides.md |
+| bpc157-grey-market | focused | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 390ms | 04_grey-market-compounds.md |
+| black-box-warning-thyroid | focused | 1.00 | 1.00 | 1.00 | 1.00 | 0.94 | 445ms | 05_safety-side-effects.md |
+| tirzepatide-dual-agonist | focused | 0.00 | 0.00 | 0.50 | 0.25 | 0.31 | 824ms | 01_what-are-peptides.md |
+| oral-peptide-delivery | focused | 1.00 | 1.00 | 1.00 | 1.00 | 0.94 | 387ms | 07_future-of-peptide-therapy.md |
+| grey-market-risks | cross-chapter | 1.00 | 0.67 | 0.67 | 1.00 | 0.73 | 405ms | 06_regulatory-landscape.md |
+| peptide-stability-refrigeration | focused | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 754ms | 02_chapter-2.md |
+| questions-to-ask-prescriber | focused | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 760ms | 08_questions-to-ask-prescriber.md |
+| book-authors | identity | 1.00 | 0.50 | 1.00 | 1.00 | 0.84 | 227ms | 00_front-matter.md |
 
 ---
 
 ## Brutally Honest Assessment
 
 ### What's Working Well
-- **12/14 queries** achieve ≥80% recall@5
-- **5/14 queries** complete in under 500ms
-- **100% hit rate** — most queries find at least one relevant chapter
+- **11/14 queries** achieve ≥80% recall@5
+- **10/14 queries** complete in under 500ms
+- **93% hit rate** — most queries find at least one relevant chapter
 
 ### What Needs Improvement
-- **2 queries** exceed 1 second latency
-- **1 queries** returned fewer than 3 chapters — context may be too sparse
+- **1 queries** returned ZERO relevant chapters: weight-loss-semaglutide
+- **1 queries** have <50% recall@5
+- **1 queries** exceed 1 second latency
 
 ### Critical Issues
 
@@ -85,7 +86,7 @@
 
 | Approach | Expected Recall@5 | Pros | Cons |
 |----------|-------------------|------|------|
-| NeuralMind (current) | 95% | Learns over time | Wrong tool for prose, verbose |
+| NeuralMind (current) | 87% | Learns over time | Wrong tool for prose, verbose |
 | Pure embedding (ChromaDB) | ~85-90% | Fast, accurate | No structure awareness |
 | BM25 keyword search | ~70-80% | Fast, interpretable | Misses semantic matches |
 | Hybrid (BM25 + embedding) | ~90-95% | Best of both worlds | More complex |
@@ -113,7 +114,7 @@
 
 ## Conclusion
 
-NeuralMind v3.10.0 **functions** as a retrieval system but is **not optimized for books**. At 95% recall, it misses more than half the relevant content.
+NeuralMind v3.10.0 **functions** as a retrieval system but is **not optimized for books**. At 87% recall, it misses more than half the relevant content.
 
 **Verdict:** A purpose-built content retrieval system would achieve >90% recall with cleaner output.
 
