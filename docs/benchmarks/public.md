@@ -125,8 +125,8 @@ is the weakest repo in the corpus at 85% recall; every other repo clears 89%+.
 ## What the numbers honestly say
 
 1. **Against what developers actually do today — paste files or grep — NeuralMind
-   is a large, real win, but not a perfect one.** It reaches **79–100% gold-file
-   recall (93.75% mean) at 44.9–256.8× fewer tokens** than pasting the files, and
+   is a large, real win, but not a perfect one.** It reaches **85–100% gold-file
+   recall (93.6% mean) at 45.7–259.1× fewer tokens** than pasting the files, and
    it beats `ripgrep` on cost on every repo, and on recall it's ahead on 2 of
    4 repos and ties exactly on the other 2 (`click` and `rich`) — never
    behind. Most agents don't have a tuned
@@ -136,8 +136,8 @@ is the weakest repo in the corpus at 85% recall; every other repo clears 89%+.
 
 2. **A well-tuned vector RAG is also excellent at *findability* — and we show it.**
    On three of four repos `embedding-rag` matches or beats NeuralMind's recall,
-   always at fewer tokens, and on `click` it beats NeuralMind by a wide margin
-   (1.00 vs 0.79 recall). We do not hide this. Two honest caveats: (a) that
+   always at fewer tokens, and on `flask` it beats NeuralMind by a wide margin
+   (0.95 vs 0.85 recall). We do not hide this. Two honest caveats: (a) that
    baseline *is* NeuralMind's own encoder doing function-level retrieval, and
    (b) its "cost" is the bare retrieved chunks — NeuralMind spends its extra
    tokens assembling a *structured, readable* context (project map, signatures,
@@ -145,7 +145,7 @@ is the weakest repo in the corpus at 85% recall; every other repo clears 89%+.
    gold-file recall measures locating, not answering.
 
 3. **`ripgrep` is the cautionary tale on 3 of 4 repos.** Cheap-ish, but on
-   `requests` and `click` it *misses the right file 21–29% of the time* (recall
+   `requests` and `flask` it *misses the right file 21–29% of the time* (recall
    0.79) — keyword search has no notion of meaning. It only reaches 1.00 recall
    on `rich`, where the query vocabulary happens to overlap the code closely.
 
@@ -153,16 +153,15 @@ is the weakest repo in the corpus at 85% recall; every other repo clears 89%+.
 
 Two loss modes, reported plainly:
 
-- **Gold-file misses on 3 of 4 repos.** `click` is the weakest (2 of 7 misses,
-  recall 0.79); `requests` and `flask` each miss 1 query (4 of 40 total,
-  recall 0.96 and 0.95 respectively). `rich` shows zero misses. These numbers
-  move between code changes — see the note in ["The corpus"](#the-corpus)
-  below on why they differ from earlier published snapshots. Full per-query
-  detail in the tables above and in
-  [`bench/public/results.json`](../../bench/public/results.json).
+- **Gold-file misses on 3 of 4 repos.** `flask` is the weakest (2 of 10 misses,
+  recall 0.85); `requests` misses 3 queries (recall 0.89); `click` and `rich`
+  show zero misses. That's 5 of 40 total. These numbers move between code
+  changes — see the note in ["The corpus"](#the-corpus) below on why they
+  differ from earlier published snapshots. Full per-query detail in the tables
+  above and in [`bench/public/results.json`](../../bench/public/results.json).
 - **Token cost vs. a bare top-k vector retrieval.** Where `embedding-rag` also
   hits full or near-full recall (`click`, `rich`, `requests`), NeuralMind
-  spends more tokens to deliver assembled context, and on `click` also trails
+  spends more tokens to deliver assembled context, and on `flask` also trails
   on recall. We report that plainly; if your only need is "which file," a bare
   vector index is cheaper.
 
@@ -243,8 +242,8 @@ This page's numbers moved *twice* in the same audit that first caught the
 staleness above: an initial regeneration (branch code) found 85–100% recall
 with `requests`/`flask` as the weakest repos; merging in several months of
 independent `main` development before publishing shifted retrieval behavior
-again, landing on the 79–100% figures actually committed here, with `click`
-now the weakest repo instead. Neither run was wrong — both were real,
+again, landing on the 85–100% figures committed here, with `flask` as the
+weakest repo at 0.85 recall. Neither run was wrong — both were real,
 deterministic measurements of the code that existed at that moment. That
 volatility, not any single number, is the actual finding: without either
 CI regeneration on retrieval-path changes or run-to-run averaging, a

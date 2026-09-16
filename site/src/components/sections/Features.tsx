@@ -25,8 +25,8 @@ const featureList: { icon: IconName; title: string; desc: string; badge: string 
     {
         icon: 'layers',
         title: 'Progressive L0–L3 Disclosure',
-        desc: 'Retrieves the exact bytes needed. Never pastes the whole repo. 45–257× fewer tokens than full-file context across 40 pre-registered queries on four public repos.',
-        badge: '45–257×',
+        desc: 'Retrieves the exact bytes needed. Never pastes the whole repo. 46–259× fewer tokens than full-file context across 40 pre-registered queries on four public repos.',
+        badge: '46–259×',
     },
     {
         icon: 'dashboard',

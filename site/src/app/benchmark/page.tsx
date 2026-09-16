@@ -339,7 +339,7 @@ python -m evals.public.run     `}<span className="text-faint"># clones the pinne
                             evidence, it is advertising.
                         </p>
 
-                        <h3 className="font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-faint mb-3">1 — The four gold-file misses</h3>
+                        <h3 className="font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-faint mb-3">1 — The five gold-file misses</h3>
                         <div className="overflow-x-auto -mx-2 px-2 mb-6">
                             <table className="w-full min-w-[32rem] border-collapse text-sm">
                                 <thead>
