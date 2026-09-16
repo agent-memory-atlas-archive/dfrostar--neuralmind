@@ -557,7 +557,8 @@ class NeuralMind:
         # before creating the selector so it can use the right strategy.
         graph = getattr(self.embedder, "graph", None)
         if graph:
-            self.project_kind = graph.get("project_kind", "code")
+            # The graph structure has a top-level "graph" key that contains the project_kind
+            self.project_kind = graph.get("graph", {}).get("project_kind", "code")
         else:
             self.project_kind = "code"
 
