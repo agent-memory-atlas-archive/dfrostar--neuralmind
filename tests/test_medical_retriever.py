@@ -54,12 +54,14 @@ def ensure_test_chapters():
     # Chapter 3: retatrutide and black box warning
     with open(MEDICAL_CHAPTERS_DIR / "chapter_03.md", "w") as f:
         f.write(
-            "# Chapter 3: Retatrutide and Tirzepatide\\n\\nSemaglutide is a peptide drug that is a GLP-1 agonist. Tirzepatide is also a peptide drug.\\n"
+            "# Chapter 3: Retatrutide and Tirzepatide\\n\\nSemaglutide is a peptide drug that is a GLP-1 agonist. Tirzepatide is also a peptide drug.\\n\\n"
+            "The FDA approval process for peptides involves preclinical testing, clinical trials (Phase I, II, III), and review of safety and efficacy data.\\n"
         )
     # Chapter 4: BPC-157
     with open(MEDICAL_CHAPTERS_DIR / "chapter_04.md", "w") as f:
         f.write(
-            "# Chapter 4: BPC-157\\n\\nBPC-157 is a peptide being studied for wound healing.\\n"
+            "# Chapter 4: BPC-157\\n\\nBPC-157 is a peptide being studied for wound healing.\\n\\n"
+            "There are risks associated with buying peptides from research chemical websites, including lack of quality control, potential contamination, and inaccurate labeling.\\n"
         )
     # Chapter 5: black box warning (thyroid)
     with open(MEDICAL_CHAPTERS_DIR / "chapter_05.md", "w") as f:
@@ -68,18 +70,19 @@ def ensure_test_chapters():
         )
     # Chapter 6: future chapters
     with open(MEDICAL_CHAPTERS_DIR / "chapter_06.md", "w") as f:
-        f.write(
-            "# Chapter 6: Future Research\\n\\nMore studies on peptide drugs are needed.\\n"
-        )
+        f.write("# Chapter 6: Future Research\\n\\nMore studies on peptide drugs are needed.\\n")
     # Chapter 7: oral peptide
     with open(MEDICAL_CHAPTERS_DIR / "chapter_07.md", "w") as f:
+        f.write("# Chapter 7: Oral Peptides\\n\\nOral peptide options are under investigation.\\n")
+    # Chapter 8: questions to ask prescriber
+    with open(MEDICAL_CHAPTERS_DIR / "chapter_08.md", "w") as f:
         f.write(
-            "# Chapter 7: Oral Peptides\\n\\nOral peptide options are under investigation.\\n"
+            "# Chapter 8: Questions to Ask Your Prescriber\\n\\nBefore starting peptide therapy, you should ask your doctor about the potential benefits, risks, side effects, and how to monitor your response to treatment.\\n"
         )
-    # Chapter 8 to 11: filler
-    for i in range(8, 12):
+    # Chapter 9 to 11: filler
+    for i in range(9, 12):
         with open(MEDICAL_CHAPTERS_DIR / f"chapter_{i:02d}.md", "w") as f:
-            f.write(f"# Chapter {i}\\n\\nThis is chapter {i}.\\n")
+            f.write(f"# Chapter {i}: Placeholder\\n\\nPlaceholder content for chapter {i}.\\n")
     return str(MEDICAL_FIXTURES_DIR), str(MEDICAL_CHAPTERS_DIR)
 
 

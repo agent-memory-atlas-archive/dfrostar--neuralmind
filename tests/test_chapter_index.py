@@ -13,7 +13,7 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "neuralmind"))
 
 
-@ pytest.fixture(scope="module")
+@pytest.fixture(scope="module")
 def book_dirs(tmpdir_factory):
     base = tmpdir_factory.mktemp("book")
     book_dir = str(base)
