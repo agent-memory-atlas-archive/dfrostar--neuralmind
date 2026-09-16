@@ -27,17 +27,16 @@ from neuralmind.medical_retriever import (  # noqa: E402
     ConfidenceFlagger,
     MedicalEmbedder,
     MedicalRetriever,
-    QueryIntent,
+    _tokenize_prose,
     classify_query_intent,
     compute_heading_score,
-    _tokenize_prose,
 )
 from neuralmind.terminology import (  # noqa: E402
     TERMINOLOGY_MAP,
     expand_query_with_terminology,
     expand_tokens,
-    get_related_terms,
     get_drug_class,
+    get_related_terms,
 )
 
 # Use test fixtures directory
@@ -92,10 +91,14 @@ def ensure_test_chapters():
         )
     # Chapter 6: future chapters
     with open(MEDICAL_CHAPTERS_DIR / "chapter_06.md", "w") as f:
-        f.write("# Chapter 6: Future Research\n\n## Overview\n\nMore studies on peptide drugs are needed.\n")
+        f.write(
+            "# Chapter 6: Future Research\n\n## Overview\n\nMore studies on peptide drugs are needed.\n"
+        )
     # Chapter 7: oral peptide
     with open(MEDICAL_CHAPTERS_DIR / "chapter_07.md", "w") as f:
-        f.write("# Chapter 7: Oral Peptides\n\n## Overview\n\nOral peptide options are under investigation.\n")
+        f.write(
+            "# Chapter 7: Oral Peptides\n\n## Overview\n\nOral peptide options are under investigation.\n"
+        )
     # Chapter 8: questions to ask prescriber
     with open(MEDICAL_CHAPTERS_DIR / "chapter_08.md", "w") as f:
         f.write(
@@ -105,9 +108,12 @@ def ensure_test_chapters():
     # Chapter 9 to 11: filler
     for i in range(9, 12):
         with open(MEDICAL_CHAPTERS_DIR / f"chapter_{i:02d}.md", "w") as f:
-            f.write(f"# Chapter {i}: Placeholder\n\n## Content\n\nPlaceholder content for chapter {i}.\n")
+            f.write(
+                f"# Chapter {i}: Placeholder\n\n## Content\n\nPlaceholder content for chapter {i}.\n"
+            )
     # Also write copies to CHAPTERS_DIR for tests using that path
     import shutil
+
     for md_file in MEDICAL_CHAPTERS_DIR.glob("chapter_*.md"):
         shutil.copy2(md_file, CHAPTERS_DIR / md_file.name)
     return str(MEDICAL_FIXTURES_DIR), str(MEDICAL_CHAPTERS_DIR)
@@ -393,8 +399,9 @@ class TestMedicalRetriever:
 
     def test_intent_classification(self):
         """Query intent should be classified and returned."""
+        book_dir, _ = ensure_test_chapters()
         retriever = MedicalRetriever(
-            project_path="/home/dtfrost5/ai-agent-playbook-v2/books/peptide-patient-guide",
+            project_path=book_dir,
             chapter_dir="chapters",
         )
         retriever.build()
@@ -620,7 +627,9 @@ class TestQueryIntentClassification:
 
     def test_comparison_intent(self):
         """Comparison queries should be classified correctly."""
-        intent = classify_query_intent("What is the difference between semaglutide and tirzepatide?")
+        intent = classify_query_intent(
+            "What is the difference between semaglutide and tirzepatide?"
+        )
         assert intent.primary == "comparison"
 
     def test_definition_intent(self):
@@ -701,12 +710,15 @@ class TestCrossChapterComparison:
 
     def test_comparison_query_returns_both_perspectives(self):
         """Comparison query should return chapters covering both entities."""
+        book_dir, _ = ensure_test_chapters()
         retriever = MedicalRetriever(
-            project_path="/home/dtfrost5/ai-agent-playbook-v2/books/peptide-patient-guide",
+            project_path=book_dir,
             chapter_dir="chapters",
         )
         retriever.build()
-        result = retriever.query("What is tirzepatide and how does it differ from semaglutide?", top_k=5)
+        result = retriever.query(
+            "What is tirzepatide and how does it differ from semaglutide?", top_k=5
+        )
         assert result.intent == "comparison"
         assert len(result.chapters) > 0
 

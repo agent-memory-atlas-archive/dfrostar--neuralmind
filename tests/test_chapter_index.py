@@ -8,27 +8,40 @@ This is the SOTA path — chapter indexer + neural embeddings + BM25.
 import os
 import sys
 import tempfile
-import shutil
 
 import pytest
 
 # Synthetic chapters directory for standalone ChapterIndexer tests
 CHAPTERS_DIR = os.path.join(tempfile.gettempdir(), "nm_test_chapters")
 
+
 def ensure_test_chapters():
     """Create synthetic chapter files with H2 sections for section-level tests."""
     os.makedirs(CHAPTERS_DIR, exist_ok=True)
     chapters = [
-        ("chapter_01.md", "# Chapter 1: Peptide Definition\n\n## Overview\n\nA peptide is a short chain of amino acids.\n"),
-        ("chapter_02.md", "# Chapter 2: Semaglutide\n\n## Mechanism\n\nSemaglutide is a GLP-1 agonist.\n\n## Usage\n\nFor diabetes.\n"),
-        ("chapter_03.md", "# Chapter 3: Retatrutide\n\n## Overview\n\nTriple agonist peptide.\n\n## FDA Approval\n\nPhase 3 trials ongoing.\n"),
+        (
+            "chapter_01.md",
+            "# Chapter 1: Peptide Definition\n\n## Overview\n\nA peptide is a short chain of amino acids.\n",
+        ),
+        (
+            "chapter_02.md",
+            "# Chapter 2: Semaglutide\n\n## Mechanism\n\nSemaglutide is a GLP-1 agonist.\n\n## Usage\n\nFor diabetes.\n",
+        ),
+        (
+            "chapter_03.md",
+            "# Chapter 3: Retatrutide\n\n## Overview\n\nTriple agonist peptide.\n\n## FDA Approval\n\nPhase 3 trials ongoing.\n",
+        ),
         ("chapter_04.md", "# Chapter 4: BPC-157\n\n## Research\n\nStudied for wound healing.\n"),
-        ("chapter_05.md", "# Chapter 5: Safety\n\n## Warning\n\nBlack box warning for thyroid tumors.\n"),
+        (
+            "chapter_05.md",
+            "# Chapter 5: Safety\n\n## Warning\n\nBlack box warning for thyroid tumors.\n",
+        ),
     ]
     for fname, content in chapters:
         with open(os.path.join(CHAPTERS_DIR, fname), "w") as f:
             f.write(content)
     return CHAPTERS_DIR
+
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "neuralmind"))
 
@@ -206,6 +219,7 @@ class TestChapterIndexerStandalone:
         assert elapsed < 1000, f"First query took {elapsed:.0f}ms"
 
         ensure_test_chapters()
+
     def test_section_level_sub_documents(self):
         """Sections should be extracted as sub-documents for precision retrieval."""
         from neuralmind.chapter_indexer import ChapterIndexer
@@ -222,6 +236,7 @@ class TestChapterIndexerStandalone:
             assert "chapter_index" in sec
 
         ensure_test_chapters()
+
     def test_section_bm25_built(self):
         """Section-level BM25 structures should be built."""
         from neuralmind.chapter_indexer import ChapterIndexer
@@ -232,6 +247,7 @@ class TestChapterIndexerStandalone:
         assert len(indexer._section_dl) == len(indexer._section_data)
 
         ensure_test_chapters()
+
     def test_section_heading_match(self):
         """Section heading match should boost parent chapter."""
         from neuralmind.chapter_indexer import ChapterIndexer
@@ -246,6 +262,7 @@ class TestChapterIndexerStandalone:
         assert "chapter_05.md" in sources
 
         ensure_test_chapters()
+
     def test_multi_entity_search_merges(self):
         """Multi-entity search should merge results from multiple queries."""
         from neuralmind.medical_retriever import ChapterIndexer
@@ -259,6 +276,7 @@ class TestChapterIndexerStandalone:
         assert len(sources) == len(set(sources)), "Results should be deduplicated"
 
         ensure_test_chapters()
+
     def test_chapter_section_two_level_indexing(self):
         """Two-level indexing should return chapter + section info."""
         from neuralmind.medical_retriever import ChapterIndexer
@@ -267,9 +285,10 @@ class TestChapterIndexerStandalone:
         indexer.index_directory(CHAPTERS_DIR)
         # Chapter documents should have sections
         for doc in indexer._documents:
-            assert hasattr(doc, 'sections') or isinstance(doc, dict)
+            assert hasattr(doc, "sections") or isinstance(doc, dict)
 
         ensure_test_chapters()
+
     def test_heading_tokens_extracted(self):
         """Heading tokens should be extracted from chapters."""
         from neuralmind.medical_retriever import ChapterIndexer
@@ -278,7 +297,11 @@ class TestChapterIndexerStandalone:
         indexer.index_directory(CHAPTERS_DIR)
         found_headings = False
         for doc in indexer._documents:
-            tokens = doc.heading_tokens if hasattr(doc, 'heading_tokens') else doc.get('heading_tokens', set())
+            tokens = (
+                doc.heading_tokens
+                if hasattr(doc, "heading_tokens")
+                else doc.get("heading_tokens", set())
+            )
             if tokens:
                 found_headings = True
                 break

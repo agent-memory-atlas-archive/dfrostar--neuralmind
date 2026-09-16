@@ -78,10 +78,16 @@ class CognitionConfig:
     """Configuration for the cognition loop."""
 
     enabled: bool = _env_bool("NEURALMIND_COGNITION_LOOP", True)
-    interval_secs: int = _env_int("NEURALMIND_COGNITION_INTERVAL_SECS", DEFAULT_COGNITION_INTERVAL_SECS)
+    interval_secs: int = _env_int(
+        "NEURALMIND_COGNITION_INTERVAL_SECS", DEFAULT_COGNITION_INTERVAL_SECS
+    )
     max_steps: int = _env_int("NEURALMIND_COGNITION_MAX_STEPS", DEFAULT_MAX_STEPS)
-    synthesis_min_cluster: int = _env_int("NEURALMIND_SYNTHESIS_MIN_CLUSTER", DEFAULT_SYNTHESIS_MIN_CLUSTER)
-    consolidate_cooldown_secs: int = _env_int("NEURALMIND_CONSOLIDATE_COOLDOWN_SECS", DEFAULT_CONSOLIDATE_COOLDOWN_SECS)
+    synthesis_min_cluster: int = _env_int(
+        "NEURALMIND_SYNTHESIS_MIN_CLUSTER", DEFAULT_SYNTHESIS_MIN_CLUSTER
+    )
+    consolidate_cooldown_secs: int = _env_int(
+        "NEURALMIND_CONSOLIDATE_COOLDOWN_SECS", DEFAULT_CONSOLIDATE_COOLDOWN_SECS
+    )
     decay_rate: float = _env_float("NEURALMIND_DECAY_RATE", DEFAULT_DECAY_RATE)
     prune_days: int = _env_int("NEURALMIND_PRUNE_DAYS", DEFAULT_PRUNE_DAYS)
 
@@ -186,7 +192,9 @@ class CognitionLoop:
                 break
 
         report.duration_secs = time.time() - start
-        logger.info("[cognition_loop] completed in %.1fs: %s", report.duration_secs, report.to_dict())
+        logger.info(
+            "[cognition_loop] completed in %.1fs: %s", report.duration_secs, report.to_dict()
+        )
         return report
 
     def _reinforce_coaccess(self) -> int:
@@ -267,7 +275,7 @@ class CognitionLoop:
 
     def _decay_edges(self) -> int:
         """Decay unused edges (multiplicative decay).
-        
+
         Skips LTP-protected edges (activation_count >= LTP_THRESHOLD).
         """
         try:
@@ -275,7 +283,9 @@ class CognitionLoop:
                 conn.row_factory = sqlite3.Row
                 cur = conn.cursor()
                 # Get all edges (skip LTP-protected)
-                cur.execute("SELECT node_a, node_b, weight, last_activated, namespace, activation_count FROM synapses WHERE activation_count < 5")
+                cur.execute(
+                    "SELECT node_a, node_b, weight, last_activated, namespace, activation_count FROM synapses WHERE activation_count < 5"
+                )
                 rows = cur.fetchall()
                 decayed = 0
                 for row in rows:
@@ -425,10 +435,7 @@ class CognitionLoop:
                     data = json.loads(path.read_text(encoding="utf-8"))
                     # Check if all entries are stale
                     now = time.time()
-                    stale = all(
-                        (now - entry.get("last_read", 0)) > 3600
-                        for entry in data.values()
-                    )
+                    stale = all((now - entry.get("last_read", 0)) > 3600 for entry in data.values())
                     if stale:
                         path.unlink()
                         cleared += 1
@@ -440,7 +447,9 @@ class CognitionLoop:
             return 0
 
 
-def run_cognition_loop(project_path: str | Path, config: CognitionConfig | None = None) -> CognitionReport:
+def run_cognition_loop(
+    project_path: str | Path, config: CognitionConfig | None = None
+) -> CognitionReport:
     """Run the cognition loop for a project.
 
     This is the main entry point for the cognition loop. It can be called

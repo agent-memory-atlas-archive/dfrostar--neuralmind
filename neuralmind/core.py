@@ -1345,7 +1345,10 @@ class NeuralMind:
             result = self._query_prose(question)
         else:
             result = self.selector.get_query_context(
-                question, trace=trace, trace_verbose=trace_verbose, query_type=query_type,
+                question,
+                trace=trace,
+                trace_verbose=trace_verbose,
+                query_type=query_type,
                 context_budget=context_budget,
             )
         if self.hybrid_context:

@@ -2066,7 +2066,11 @@ class ContextSelector:
         )
 
     def get_query_context(
-        self, query: str, trace: bool = False, trace_verbose: bool = False, query_type: str = "auto",
+        self,
+        query: str,
+        trace: bool = False,
+        trace_verbose: bool = False,
+        query_type: str = "auto",
         context_budget: int | None = None,
     ) -> ContextResult:
         """
@@ -2117,15 +2121,24 @@ class ContextSelector:
                     )
                     result.context = trimmed_context
                     # Update budget tracking
-                    result.budget.l3_search = 0 if "L3" in layers_trimmed else result.budget.l3_search
-                    result.budget.l2_ondemand = 0 if "L2" in layers_trimmed else result.budget.l2_ondemand
-                    result.budget.l1_summary = 0 if "L1" in layers_trimmed else result.budget.l1_summary
+                    result.budget.l3_search = (
+                        0 if "L3" in layers_trimmed else result.budget.l3_search
+                    )
+                    result.budget.l2_ondemand = (
+                        0 if "L2" in layers_trimmed else result.budget.l2_ondemand
+                    )
+                    result.budget.l1_summary = (
+                        0 if "L1" in layers_trimmed else result.budget.l1_summary
+                    )
                     # Log budget warning
                     if check_budget_warning(used, context_budget):
                         import logging
+
                         logging.getLogger(__name__).warning(
                             "[context_budget] query exceeded budget: %d/%d tokens (trimmed: %s)",
-                            used, context_budget, layers_trimmed,
+                            used,
+                            context_budget,
+                            layers_trimmed,
                         )
 
             if self._trace is not None:
@@ -2134,9 +2147,7 @@ class ContextSelector:
         finally:
             self._trace = None
 
-    def _trim_context_to_budget(
-        self, context: str, budget_tokens: int
-    ) -> tuple[str, list[str]]:
+    def _trim_context_to_budget(self, context: str, budget_tokens: int) -> tuple[str, list[str]]:
         """Trim context to fit within budget, removing lower-priority layers first.
 
         Layer priority (highest to lowest):

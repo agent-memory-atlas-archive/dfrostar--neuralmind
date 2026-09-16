@@ -121,9 +121,15 @@ class SessionSummary:
             files_touched=", ".join(self.files_touched) if self.files_touched else "none",
             title=self.title,
             what_was_done=self.what_was_done,
-            key_decisions="\n".join(f"- {d}" for d in self.key_decisions) if self.key_decisions else "None",
-            files_list="\n".join(f"- {f}" for f in self.files_touched) if self.files_touched else "None",
-            commands_list="\n".join(f"- {c}" for c in self.commands_run) if self.commands_run else "None",
+            key_decisions=(
+                "\n".join(f"- {d}" for d in self.key_decisions) if self.key_decisions else "None"
+            ),
+            files_list=(
+                "\n".join(f"- {f}" for f in self.files_touched) if self.files_touched else "None"
+            ),
+            commands_list=(
+                "\n".join(f"- {c}" for c in self.commands_run) if self.commands_run else "None"
+            ),
             notes=self.notes or "None",
         )
 
@@ -200,7 +206,9 @@ class SessionTracker:
             return False
         return self.tool_call_count > 0 and self.tool_call_count % self.config.every_n_turns == 0
 
-    def generate_summary(self, title: str = "", what_was_done: str = "", notes: str = "") -> SessionSummary:
+    def generate_summary(
+        self, title: str = "", what_was_done: str = "", notes: str = ""
+    ) -> SessionSummary:
         """Generate a session summary from tracked state."""
         return SessionSummary(
             session_id=self.session_id,
@@ -234,7 +242,12 @@ class SessionTracker:
         path.write_text(summary.to_markdown(), encoding="utf-8")
 
         self._last_summary_hash = content_hash
-        logger.info("[session_summaries] wrote %s (%d files, %d commands)", path, len(summary.files_touched), len(summary.commands_run))
+        logger.info(
+            "[session_summaries] wrote %s (%d files, %d commands)",
+            path,
+            len(summary.files_touched),
+            len(summary.commands_run),
+        )
 
         # Prune old summaries
         self._prune_old_summaries()

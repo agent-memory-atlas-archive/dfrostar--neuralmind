@@ -38,12 +38,25 @@ TERMINOLOGY_MAP: dict[str, list[str]] = {
     "adlyxin": ["lixisenatide", "GLP-1 receptor agonist", "diabetes"],
     "symlin": ["pramlintide", "amylin analog", "diabetes"],
     "victoza": ["liraglutide", "GLP-1 receptor agonist"],
-
     # ============================================================
     # Drug Classes
     # ============================================================
-    "glp-1 agonist": ["semaglutide", "liraglutide", "dulaglutide", "tirzepatide", "GLP-1 receptor agonist", "incretin"],
-    "glp-1 receptor agonist": ["semaglutide", "liraglutide", "dulaglutide", "tirzepatide", "GLP-1 agonist", "incretin"],
+    "glp-1 agonist": [
+        "semaglutide",
+        "liraglutide",
+        "dulaglutide",
+        "tirzepatide",
+        "GLP-1 receptor agonist",
+        "incretin",
+    ],
+    "glp-1 receptor agonist": [
+        "semaglutide",
+        "liraglutide",
+        "dulaglutide",
+        "tirzepatide",
+        "GLP-1 agonist",
+        "incretin",
+    ],
     "gip agonist": ["tirzepatide", "retatrutide", "glucose-dependent insulinotropic polypeptide"],
     "dual agonist": ["tirzepatide", "zepbound", "mounjaro", "GLP-1/GIP", "twincretin"],
     "triple agonist": ["retatrutide", "GLP-1/GIP/glucagon"],
@@ -52,54 +65,119 @@ TERMINOLOGY_MAP: dict[str, list[str]] = {
     "gh secretagogue": ["ipamorelin", "growth hormone secretagogue", "ghrelin mimetic"],
     "amylin analog": ["pramlintide", "symlin"],
     "melanocortin agonist": ["melanotan", "pt-141", "bremelanotide"],
-
     # ============================================================
     # Medical Conditions
     # ============================================================
-    "diabetes": ["type 2 diabetes", "semaglutide", "tirzepatide", "metformin", "insulin", "blood glucose", "HbA1c"],
+    "diabetes": [
+        "type 2 diabetes",
+        "semaglutide",
+        "tirzepatide",
+        "metformin",
+        "insulin",
+        "blood glucose",
+        "HbA1c",
+    ],
     "type 2 diabetes": ["semaglutide", "tirzepatide", "metformin", "insulin resistance", "obesity"],
-    "obesity": ["semaglutide", "tirzepatide", "retatrutide", "weight loss", "BMI", "Wegovy", "Zepbound"],
-    "weight loss": ["semaglutide", "tirzepatide", "retatrutide", "obesity", "STEP trial", "SURMOUNT"],
+    "obesity": [
+        "semaglutide",
+        "tirzepatide",
+        "retatrutide",
+        "weight loss",
+        "BMI",
+        "Wegovy",
+        "Zepbound",
+    ],
+    "weight loss": [
+        "semaglutide",
+        "tirzepatide",
+        "retatrutide",
+        "obesity",
+        "STEP trial",
+        "SURMOUNT",
+    ],
     "nafld": ["semaglutide", "non-alcoholic fatty liver disease", "liver", "metabolic syndrome"],
-    "non-alcoholic fatty liver disease": ["semaglutide", "NAFLD", "liver fibrosis", "metabolic syndrome"],
+    "non-alcoholic fatty liver disease": [
+        "semaglutide",
+        "NAFLD",
+        "liver fibrosis",
+        "metabolic syndrome",
+    ],
     "pcos": ["polycystic ovary syndrome", "metformin", "semaglutide", "insulin resistance"],
     "polycystic ovary syndrome": ["metformin", "semaglutide", "PCOS", "insulin resistance"],
     "osteoporosis": ["teriparatide", "Forteo", "bone density", "calcium"],
-    "thyroid cancer": ["medullary thyroid cancer", "black box warning", "C-cell tumor", "semaglutide"],
+    "thyroid cancer": [
+        "medullary thyroid cancer",
+        "black box warning",
+        "C-cell tumor",
+        "semaglutide",
+    ],
     "medullary thyroid cancer": ["black box warning", "thyroid C-cell", "semaglutide", "MEN2"],
     "pancreatitis": ["inflammation", "pancreas", "semaglutide", "tirzepatide", "safety warning"],
     "cardiovascular": ["heart disease", "SELECT trial", "MACE", "semaglutide", "stroke"],
     "sleep disorder": ["DSIP", "emideltide", "delta sleep-inducing peptide", "insomnia"],
     "insomnia": ["DSIP", "emideltide", "delta sleep-inducing peptide"],
-
     # ============================================================
     # Mechanisms of Action
     # ============================================================
     "gastric emptying": ["semaglutide", "tirzepatide", "GLP-1", "stomach", "nausea", "appetite"],
     "insulin secretion": ["semaglutide", "GLP-1", "pancreas", "beta cell", "glucose"],
-    "appetite suppression": ["semaglutide", "tirzepatide", "GLP-1", "brain", "hypothalamus", "weight loss"],
-    "glucose dependent": ["semaglutide", "GLP-1", "insulin secretion", "glucose-dependent insulinotropic polypeptide"],
+    "appetite suppression": [
+        "semaglutide",
+        "tirzepatide",
+        "GLP-1",
+        "brain",
+        "hypothalamus",
+        "weight loss",
+    ],
+    "glucose dependent": [
+        "semaglutide",
+        "GLP-1",
+        "insulin secretion",
+        "glucose-dependent insulinotropic polypeptide",
+    ],
     "beta cell": ["insulin secretion", "pancreas", "diabetes", "semaglutide"],
     "receptor agonist": ["GLP-1 receptor agonist", "semaglutide", "tirzepatide", "binding"],
     "hormone mimic": ["semaglutide", "GLP-1", "mimic", "natural hormone", "incretin"],
-    "absorption enhancer": ["oral peptide", "oral semaglutide", "Rybelsus", "bioavailability", "intestinal lining"],
-
+    "absorption enhancer": [
+        "oral peptide",
+        "oral semaglutide",
+        "Rybelsus",
+        "bioavailability",
+        "intestinal lining",
+    ],
     # ============================================================
     # Side Effects
     # ============================================================
-    "nausea": ["semaglutide", "tirzepatide", "side effect", "gastric emptying", "vomiting", "tolerance"],
+    "nausea": [
+        "semaglutide",
+        "tirzepatide",
+        "side effect",
+        "gastric emptying",
+        "vomiting",
+        "tolerance",
+    ],
     "vomiting": ["nausea", "semaglutide", "side effect", "gastric emptying"],
     "diarrhea": ["semaglutide", "tirzepatide", "side effect", "GI side effect"],
     "constipation": ["semaglutide", "side effect", "GI side effect"],
     "gallbladder": ["gallstones", "cholecystitis", "semaglutide", "tirzepatide", "side effect"],
     "gallstones": ["gallbladder", "cholelithiasis", "semaglutide", "weight loss"],
-    "thyroid c-cell": ["black box warning", "thyroid cancer", "medullary thyroid cancer", "semaglutide", "rodent"],
-    "thyroid c-cell tumor": ["black box warning", "medullary thyroid cancer", "semaglutide", "rodent study"],
+    "thyroid c-cell": [
+        "black box warning",
+        "thyroid cancer",
+        "medullary thyroid cancer",
+        "semaglutide",
+        "rodent",
+    ],
+    "thyroid c-cell tumor": [
+        "black box warning",
+        "medullary thyroid cancer",
+        "semaglutide",
+        "rodent study",
+    ],
     "hypoglycemia": ["low blood sugar", "insulin", "semaglutide", "diabetes medication"],
     "injection site": ["subcutaneous", "redness", "semaglutide", "tirzepatide", "reaction"],
     "muscle loss": ["sarcopenia", "weight loss", "lean mass", "semaglutide"],
     "sarcopenia": ["muscle loss", "aging", "growth hormone"],
-
     # ============================================================
     # Administration Routes
     # ============================================================
@@ -114,7 +192,6 @@ TERMINOLOGY_MAP: dict[str, list[str]] = {
     "pen injector": ["semaglutide pen", "Ozempic pen", "pre-filled pen"],
     "once weekly": ["semaglutide", "tirzepatide", "dulaglutide", "dosing schedule"],
     "daily injection": ["liraglutide", "Victoza", "Saxenda", "exenatide"],
-
     # ============================================================
     # Regulatory Terms
     # ============================================================
@@ -145,29 +222,65 @@ TERMINOLOGY_MAP: dict[str, list[str]] = {
     "animal only": ["not FDA approved", "research", "animal study", "experimental"],
     "not yet approved": ["experimental", "investigational", "Phase 3", "clinical trials"],
     "investigational": ["not FDA approved", "clinical trials", "experimental", "research"],
-
     # ============================================================
     # Grey-Market Terms
     # ============================================================
-    "research chemical": ["grey market", "not for human consumption", "research only", "bypass FDA", "no human safety data"],
+    "research chemical": [
+        "grey market",
+        "not for human consumption",
+        "research only",
+        "bypass FDA",
+        "no human safety data",
+    ],
     "research only": ["research chemical", "not for human consumption", "grey market"],
-    "not for human consumption": ["research chemical", "grey market", "bypass FDA", "research only"],
-    "grey market": ["research chemical", "unregulated", "grey-market", "research peptide", "online vendor"],
+    "not for human consumption": [
+        "research chemical",
+        "grey market",
+        "bypass FDA",
+        "research only",
+    ],
+    "grey market": [
+        "research chemical",
+        "unregulated",
+        "grey-market",
+        "research peptide",
+        "online vendor",
+    ],
     "grey-market": ["research chemical", "grey market", "unregulated"],
     "unregulated": ["grey market", "research chemical", "no FDA oversight", "quality risk"],
     "online vendor": ["grey market", "research chemical", "unregulated", "website"],
     "unverified source": ["grey market", "research chemical", "quality risk", "contamination"],
     "contamination": ["grey market", "research chemical", "bacterial", "heavy metals", "purity"],
-    "purity": ["grey market", "research chemical", "contamination", "quality", "third-party testing"],
+    "purity": [
+        "grey market",
+        "research chemical",
+        "contamination",
+        "quality",
+        "third-party testing",
+    ],
     "no human data": ["animal only", "research chemical", "experimental", "no safety data"],
     "peptide vendor": ["grey market", "research chemical", "online vendor"],
     "research peptide": ["grey market", "research chemical", "unregulated"],
-
     # ============================================================
     # Specific Peptide Drug Names
     # ============================================================
-    "semaglutide": ["GLP-1 receptor agonist", "Ozempic", "Wegovy", "Rybelsus", "diabetes", "weight loss", "STEP trial"],
-    "tirzepatide": ["GLP-1/GIP dual agonist", "Mounjaro", "Zepbound", "diabetes", "weight loss", "SURMOUNT"],
+    "semaglutide": [
+        "GLP-1 receptor agonist",
+        "Ozempic",
+        "Wegovy",
+        "Rybelsus",
+        "diabetes",
+        "weight loss",
+        "STEP trial",
+    ],
+    "tirzepatide": [
+        "GLP-1/GIP dual agonist",
+        "Mounjaro",
+        "Zepbound",
+        "diabetes",
+        "weight loss",
+        "SURMOUNT",
+    ],
     "liraglutide": ["GLP-1 receptor agonist", "Victoza", "Saxenda", "diabetes", "weight loss"],
     "dulaglutide": ["GLP-1 receptor agonist", "Trulicity", "diabetes"],
     "exenatide": ["GLP-1 receptor agonist", "Byetta", "Bydureon", "diabetes"],
@@ -177,7 +290,13 @@ TERMINOLOGY_MAP: dict[str, list[str]] = {
     "sermorelin": ["GHRH analog", "growth hormone releasing hormone", "prescription peptide"],
     "tesamorelin": ["GHRH analog", "growth hormone releasing hormone", "HIV lipodystrophy"],
     "ipamorelin": ["GH secretagogue", "growth hormone secretagogue", "peptide"],
-    "bpc-157": ["Body Protection Compound", "gastric peptide", "grey market", "research chemical", "animal study"],
+    "bpc-157": [
+        "Body Protection Compound",
+        "gastric peptide",
+        "grey market",
+        "research chemical",
+        "animal study",
+    ],
     "tb-500": ["thymosin beta-4", "synthetic peptide", "grey market", "wound healing"],
     "thymosin beta-4": ["TB-500", "synthetic peptide", "wound healing"],
     "dsip": ["Delta sleep-inducing peptide", "emideltide", "sleep peptide", "PCAC"],
@@ -190,19 +309,29 @@ TERMINOLOGY_MAP: dict[str, list[str]] = {
     "teriparatide": ["Forteo", "osteoporosis", "bone density", "PTH analog"],
     "pramlintide": ["Symlin", "amylin analog", "diabetes"],
     "ghrh": ["growth hormone releasing hormone", "sermorelin", "cjc-1295", "GHRH analog"],
-    "gip": ["glucose-dependent insulinotropic polypeptide", "tirzepatide", "retatrutide", "incretin"],
+    "gip": [
+        "glucose-dependent insulinotropic polypeptide",
+        "tirzepatide",
+        "retatrutide",
+        "incretin",
+    ],
     "glucagon": ["retatrutide", "glucagon receptor", "blood sugar", "liver"],
     "amylin": ["pramlintide", "glucose control", "diabetes"],
     "hcg": ["human chorionic gonadotropin", "pregnancy hormone", "weight loss protocol"],
     "hgh": ["human growth hormone", "somatotropin", "growth hormone"],
-    "growth hormone": ["HGH", "sermorelin", "ipamorelin", "cjc-1295", "growth hormone releasing hormone"],
+    "growth hormone": [
+        "HGH",
+        "sermorelin",
+        "ipamorelin",
+        "cjc-1295",
+        "growth hormone releasing hormone",
+    ],
     "insulin": ["peptide hormone", "diabetes", "blood glucose", "pancreas"],
     "oxytocin": ["peptide hormone", "love hormone", "social bonding"],
     "vasopressin": ["peptide hormone", "ADH", "antidiuretic"],
     "ghrelin": ["hunger hormone", "appetite", "growth hormone secretagogue"],
     "leptin": ["satiety hormone", "appetite suppression", "obesity"],
     "glp-1": ["GLP-1 receptor agonist", "semaglutide", "incretin", "GLP-1 agonist"],
-
     # ============================================================
     # Trial Names
     # ============================================================
@@ -211,7 +340,6 @@ TERMINOLOGY_MAP: dict[str, list[str]] = {
     "select trial": ["semaglutide", "cardiovascular", "MACE", "20% reduction"],
     "surpass trial": ["tirzepatide", "semaglutide", "superior", "head-to-head"],
     "surmount trial": ["tirzepatide", "weight loss", "SURMOUNT-1", "diabetes"],
-
     # ============================================================
     # Storage & Stability Terms
     # ============================================================
@@ -223,7 +351,6 @@ TERMINOLOGY_MAP: dict[str, list[str]] = {
     "degradation": ["peptide stability", "heat", "refrigeration", "denatured"],
     "expiry": ["expiration date", "shelf life", "peptide stability"],
     "shelf life": ["expiration", "storage", "peptide stability"],
-
     # ============================================================
     # Safety & Risk Terms
     # ============================================================
@@ -235,9 +362,13 @@ TERMINOLOGY_MAP: dict[str, list[str]] = {
     "teratogenic": ["birth defect", "pregnancy risk", "contraindicated in pregnancy"],
     "overdose": ["toxicity", "excessive dose", "emergency"],
     "allergic reaction": ["hypersensitivity", "anaphylaxis", "allergy"],
-    "long-term safety": ["long term effects", "chronic use", "safety data", "post-market surveillance"],
+    "long-term safety": [
+        "long term effects",
+        "chronic use",
+        "safety data",
+        "post-market surveillance",
+    ],
     "post-market surveillance": ["long-term safety", "Phase 4", "FDA monitoring"],
-
     # ============================================================
     # Delivery Technology
     # ============================================================
@@ -247,7 +378,6 @@ TERMINOLOGY_MAP: dict[str, list[str]] = {
     "microsphere": ["sustained release", "depot injection", "extended release"],
     "sustained release": ["extended release", "depot", "long-acting"],
     "bioavailability": ["absorption", "oral peptide", "delivery", "first-pass metabolism"],
-
     # ============================================================
     # Peptide Types
     # ============================================================
@@ -256,8 +386,13 @@ TERMINOLOGY_MAP: dict[str, list[str]] = {
     "antimicrobial peptide": ["AMP", "defensin", "antibacterial peptide", "immune defense"],
     "neuropeptide": ["brain peptide", "neurotransmitter", "CNS peptide"],
     "cyclopeptide": ["cyclic peptide", "stable peptide", "constrained peptide"],
-    "peptide hormone": ["signaling molecule", "insulin", "oxytocin", "glucagon", "peptide messenger"],
-
+    "peptide hormone": [
+        "signaling molecule",
+        "insulin",
+        "oxytocin",
+        "glucagon",
+        "peptide messenger",
+    ],
     # ============================================================
     # General Medical Terms
     # ============================================================
@@ -282,7 +417,6 @@ TERMINOLOGY_MAP: dict[str, list[str]] = {
     "double-blind": ["blinded study", "neither knows", "bias reduction"],
     "peer review": ["published research", "scientific validation", "journal"],
     "meta-analysis": ["systematic review", "pooled data", "evidence synthesis"],
-
     # ============================================================
     # Book Structure Terms
     # ============================================================

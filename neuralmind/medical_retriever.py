@@ -177,8 +177,11 @@ class MedicalEmbedder:
 @dataclass
 class QueryIntent:
     """Classified intent of a medical query."""
-    primary: str = "general"     # mechanism, safety, comparison, definition, numeric, regulatory, general
-    secondary: str = ""          # optional secondary intent
+
+    primary: str = (
+        "general"  # mechanism, safety, comparison, definition, numeric, regulatory, general
+    )
+    secondary: str = ""  # optional secondary intent
     comparison_entities: list[str] = field(default_factory=list)
     numeric_signal: bool = False
     drug_names: list[str] = field(default_factory=list)
@@ -187,45 +190,117 @@ class QueryIntent:
 # Intent keyword patterns for classification
 INTENT_PATTERNS: dict[str, list[str]] = {
     "mechanism": [
-        "how does", "how it works", "mechanism", "work in the body",
-        "pathway", "receptor", "agonis", "activate", "stimulate",
-        "function of", "role of", "mode of action", "moa",
+        "how does",
+        "how it works",
+        "mechanism",
+        "work in the body",
+        "pathway",
+        "receptor",
+        "agonis",
+        "activate",
+        "stimulate",
+        "function of",
+        "role of",
+        "mode of action",
+        "moa",
     ],
     "safety": [
-        "side effect", "risk", "danger", "warning", "safety",
-        "adverse", "contraindication", "precaution", "toxic",
-        "black box", "allergic", "overdose", "harmful",
-        "interaction", "safe to", "should i be concerned",
+        "side effect",
+        "risk",
+        "danger",
+        "warning",
+        "safety",
+        "adverse",
+        "contraindication",
+        "precaution",
+        "toxic",
+        "black box",
+        "allergic",
+        "overdose",
+        "harmful",
+        "interaction",
+        "safe to",
+        "should i be concerned",
     ],
     "comparison": [
-        "differ", "compare", "versus", "vs ", " vs ",
-        "or ", "which is", "better", "difference between",
-        "pros and cons", "tradeoff", "head-to-head",
+        "differ",
+        "compare",
+        "versus",
+        "vs ",
+        " vs ",
+        "or ",
+        "which is",
+        "better",
+        "difference between",
+        "pros and cons",
+        "tradeoff",
+        "head-to-head",
     ],
     "definition": [
-        "what is", "what are", "define", "definition", "meaning of",
-        "explain", "describe", "tell me about", "who is",
-        "what does", "how do you define",
+        "what is",
+        "what are",
+        "define",
+        "definition",
+        "meaning of",
+        "explain",
+        "describe",
+        "tell me about",
+        "who is",
+        "what does",
+        "how do you define",
     ],
     "numeric": [
-        "how much", "how many", "percentage", "dosage", "dose",
-        "mg ", "milligram", "cost", "price", "average",
-        "percent", "rate", "number of", "what percentage",
-        "statistics", "how long", "duration of action",
-        "half-life", "efficacy rate",
+        "how much",
+        "how many",
+        "percentage",
+        "dosage",
+        "dose",
+        "mg ",
+        "milligram",
+        "cost",
+        "price",
+        "average",
+        "percent",
+        "rate",
+        "number of",
+        "what percentage",
+        "statistics",
+        "how long",
+        "duration of action",
+        "half-life",
+        "efficacy rate",
     ],
     "regulatory": [
-        "fda", "approval", "approved", "regulat", "pcac",
-        "nda", "anda", "clinical trial", "phase 1", "phase 2",
-        "phase 3", "compounding", "503a", "503b", "prescription",
-        "off-label", "legality", "legal status", "prescribed",
+        "fda",
+        "approval",
+        "approved",
+        "regulat",
+        "pcac",
+        "nda",
+        "anda",
+        "clinical trial",
+        "phase 1",
+        "phase 2",
+        "phase 3",
+        "compounding",
+        "503a",
+        "503b",
+        "prescription",
+        "off-label",
+        "legality",
+        "legal status",
+        "prescribed",
     ],
 }
 
 # Comparison patterns for entity extraction
 COMPARISON_CONNECTORS = [
-    r"\bvs\.?\b", r"\bversus\b", r"\bdifference\s+between\b",
-    r"\bcompare\b", r"\bwhich\s+is\b", r"\bhow\s+does\s+(.+?)\s+differ\s+from\s+(.+?)\?",
+    r"\bvs\.?\b",
+    r"\bversus\b",
+    r"\bdifference\s+between\b",
+    r"\bcompare\b",
+    r"\bwhich\s+is\b",
+    r"\bhow\s+does\s+(.+?)\s+differ\s+from\s+(.+?)\?",
     r"\b(.+?)\s+or\s+(.+?)\?",
     r"\b(.+?)\s+compared\s+to\s+(.+?)\b",
 ]
@@ -279,11 +354,30 @@ def classify_query_intent(query: str) -> QueryIntent:
 
     # Extract drug names (simple heuristic: proper nouns + known patterns)
     known_drugs = [
-        "semaglutide", "tirzepatide", "liraglutide", "dulaglutide",
-        "exenatide", "retatrutide", "bpc-157", "tb-500", "cjc-1295",
-        "sermorelin", "ipamorelin", "dsip", "emideltide", "ozempic",
-        "wegovy", "mounjaro", "zepbound", "rybelsus", "victoza",
-        "saxenda", "trulicity", "epitalon", "mots-c", "pt-141",
+        "semaglutide",
+        "tirzepatide",
+        "liraglutide",
+        "dulaglutide",
+        "exenatide",
+        "retatrutide",
+        "bpc-157",
+        "tb-500",
+        "cjc-1295",
+        "sermorelin",
+        "ipamorelin",
+        "dsip",
+        "emideltide",
+        "ozempic",
+        "wegovy",
+        "mounjaro",
+        "zepbound",
+        "rybelsus",
+        "victoza",
+        "saxenda",
+        "trulicity",
+        "epitalon",
+        "mots-c",
+        "pt-141",
     ]
     for drug in known_drugs:
         if drug in q_lower:
@@ -355,6 +449,7 @@ def compute_heading_score(query_tokens: set[str], heading_text: str) -> float:
 @dataclass
 class ChapterDocument:
     """A single indexed chapter."""
+
     source_file: str
     chapter_name: str
     text: str
@@ -365,6 +460,7 @@ class ChapterDocument:
 @dataclass
 class SectionDocument:
     """A sub-document representing an H2 section within a chapter."""
+
     source_file: str
     chapter_name: str
     section_title: str
@@ -503,7 +599,9 @@ class ChapterIndexer:
                 tokens.update(_tokenize_prose(m.group(2)))
         return tokens
 
-    def _extract_sections(self, text: str, source_file: str, chapter_name: str) -> list[dict[str, Any]]:
+    def _extract_sections(
+        self, text: str, source_file: str, chapter_name: str
+    ) -> list[dict[str, Any]]:
         """Extract H2 sections as separate sub-documents for two-level indexing.
 
         Each H2 section becomes a searchable unit. H3 subsections are included
@@ -573,14 +671,16 @@ class ChapterIndexer:
         for doc_idx, doc in enumerate(self._documents):
             for section in doc.sections:
                 if section["text"].strip():
-                    self._sections.append(SectionDocument(
-                        source_file=doc.source_file,
-                        chapter_name=doc.chapter_name,
-                        section_title=section["title"],
-                        text=section["text"],
-                        heading_tokens=section["heading_tokens"],
-                        parent_index=doc_idx,
-                    ))
+                    self._sections.append(
+                        SectionDocument(
+                            source_file=doc.source_file,
+                            chapter_name=doc.chapter_name,
+                            section_title=section["title"],
+                            text=section["text"],
+                            heading_tokens=section["heading_tokens"],
+                            parent_index=doc_idx,
+                        )
+                    )
 
         # Build section BM25
         self._section_tf = []
@@ -606,7 +706,9 @@ class ChapterIndexer:
             for term, df in self._section_df.items()
         }
 
-    def search(self, query: str, top_k: int = 5, intent: QueryIntent | None = None) -> list[dict[str, Any]]:
+    def search(
+        self, query: str, top_k: int = 5, intent: QueryIntent | None = None
+    ) -> list[dict[str, Any]]:
         """Hybrid chapter search: BM25 + embedding + heading-title match + section boost.
 
         Weights: 0.30 * bm25 + 0.35 * embedding + 0.20 * heading_match + 0.15 * section_match.
@@ -633,6 +735,7 @@ class ChapterIndexer:
 
         # Apply terminology expansion for better matching
         from neuralmind.terminology import expand_tokens
+
         expanded_tokens = expand_tokens(q_tokens)
 
         # --- BM25 (chapter level) ---
@@ -662,7 +765,10 @@ class ChapterIndexer:
                 if nq > 0:
                     for i, doc_vec in enumerate(self._embeddings):
                         min_len = min(len(q_vec), len(doc_vec))
-                        dot = sum(a * bb for a, bb in zip(q_vec[:min_len], doc_vec[:min_len], strict=False))
+                        dot = sum(
+                            a * bb
+                            for a, bb in zip(q_vec[:min_len], doc_vec[:min_len], strict=False)
+                        )
                         nd = math.sqrt(sum(bb * bb for bb in doc_vec))
                         if nd > 0:
                             embedding_scores[i] = dot / (nq * nd)
@@ -681,7 +787,7 @@ class ChapterIndexer:
         # --- Section-level boost ---
         section_boost: dict[int, float] = {}
         if self._sections:
-            for sec_idx, sec in enumerate(self._sections):
+            for _sec_idx, sec in enumerate(self._sections):
                 # Check if section heading matches query
                 sec_heading_score = compute_heading_score(q_set, sec.section_title)
                 if sec_heading_score > 0.3:
@@ -731,7 +837,9 @@ class ChapterIndexer:
             emb = embedding_scores.get(i, 0.0)
             head = heading_scores.get(i, 0.0)
             sec = section_boost.get(i, 0.0)
-            score = bm25_weight * bm25 + emb_weight * emb + head_weight * head + section_weight * sec
+            score = (
+                bm25_weight * bm25 + emb_weight * emb + head_weight * head + section_weight * sec
+            )
 
             # Downweight reference material — glossary/back-matter and
             # Claims Register are lookup tables, not primary content chapters.
@@ -987,13 +1095,9 @@ class MedicalRetriever:
 
         # Handle comparison queries with multi-entity search
         if intent.primary == "comparison" and len(intent.comparison_entities) >= 2:
-            results = self._indexer.search_multi_entity(
-                intent.comparison_entities, top_k=top_k
-            )
+            results = self._indexer.search_multi_entity(intent.comparison_entities, top_k=top_k)
         elif intent.primary == "comparison" and len(intent.drug_names) >= 2:
-            results = self._indexer.search_multi_entity(
-                intent.drug_names, top_k=top_k
-            )
+            results = self._indexer.search_multi_entity(intent.drug_names, top_k=top_k)
         else:
             results = self._indexer.search(question, top_k=top_k, intent=intent)
 

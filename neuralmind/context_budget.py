@@ -77,7 +77,9 @@ class BudgetConfig:
     """Configuration for context budget management."""
 
     budget_tokens: int = _env_int("NEURALMIND_CONTEXT_BUDGET_TOKENS", DEFAULT_CONTEXT_BUDGET_TOKENS)
-    proactive_expansion: bool = _env_bool("NEURALMIND_PROACTIVE_EXPANSION", DEFAULT_PROACTIVE_EXPANSION)
+    proactive_expansion: bool = _env_bool(
+        "NEURALMIND_PROACTIVE_EXPANSION", DEFAULT_PROACTIVE_EXPANSION
+    )
     proactive_expansion_budget_tokens: int = _env_int(
         "NEURALMIND_PROACTIVE_EXPANSION_BUDGET_TOKENS", DEFAULT_PROACTIVE_EXPANSION_BUDGET
     )
@@ -258,7 +260,9 @@ def trim_context_to_budget(
     return context, layers_trimmed
 
 
-def check_budget_warning(used_tokens: int, budget_tokens: int, warning_fraction: float = BUDGET_WARNING_FRACTION) -> bool:
+def check_budget_warning(
+    used_tokens: int, budget_tokens: int, warning_fraction: float = BUDGET_WARNING_FRACTION
+) -> bool:
     """Check if budget usage exceeds the warning threshold.
 
     Returns True if a warning should be issued.

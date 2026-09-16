@@ -158,7 +158,11 @@ class ChapterIndexer:
     def _build_section_index(self) -> None:
         """Build section-level sub-document index for precision retrieval."""
         self._section_data = []
-        for idx, (text, source_file, chapter_name) in enumerate(zip(self._texts, self._ids, [self._metadatas[i]["chapter_name"] for i in range(self._n)])):
+        for idx, (text, source_file, chapter_name) in enumerate(
+            zip(
+                self._texts, self._ids, [self._metadatas[i]["chapter_name"] for i in range(self._n)]
+            )
+        ):
             sections = self._extract_sections(text, source_file, chapter_name, idx)
             self._section_data.extend(sections)
 
@@ -184,7 +188,9 @@ class ChapterIndexer:
             for term, df in self._section_df.items()
         }
 
-    def _extract_sections(self, text: str, source_file: str, chapter_name: str, chapter_idx: int) -> list[dict[str, Any]]:
+    def _extract_sections(
+        self, text: str, source_file: str, chapter_name: str, chapter_idx: int
+    ) -> list[dict[str, Any]]:
         """Extract H2 sections as sub-documents for two-level indexing."""
         sections: list[dict[str, Any]] = []
         current_section: dict[str, Any] | None = None

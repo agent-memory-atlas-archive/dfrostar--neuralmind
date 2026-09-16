@@ -73,7 +73,9 @@ def reinforce_coaccess(store, hits: list[dict], namespace: str = "traversal") ->
             updated += 1
 
     if updated:
-        logger.debug("[graph_traversal] reinforced %d co-access edges across %d files", updated, len(files))
+        logger.debug(
+            "[graph_traversal] reinforced %d co-access edges across %d files", updated, len(files)
+        )
 
     return updated
 
@@ -98,11 +100,15 @@ def get_related_files(
     Returns:
         List of (related_node, weight) tuples.
     """
-    rows = store.spread_activation_from(node_id, namespaces=[namespace], depth=1, top_k=k, spread_decay=TRAVERSAL_DECAY_RATE)
+    rows = store.spread_activation_from(
+        node_id, namespaces=[namespace], depth=1, top_k=k, spread_decay=TRAVERSAL_DECAY_RATE
+    )
     return [(r["node"], r["energy"]) for r in rows]
 
 
-def decay_traversal_edges(store, rate: float = TRAVERSAL_DECAY_RATE, min_created_days: float = 0.0) -> int:
+def decay_traversal_edges(
+    store, rate: float = TRAVERSAL_DECAY_RATE, min_created_days: float = 0.0
+) -> int:
     """Decay traversal edges more aggressively than structural edges.
 
     Args:
