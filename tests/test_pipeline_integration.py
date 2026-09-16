@@ -19,7 +19,7 @@ generation is ~60s in this environment).
 
 import sys
 
-sys.path.insert(0, "/home/dtfrost5/neuralmind")
+sys.path.insert(0, "/home/dtfrost/neuralmind")
 
 
 import pytest
@@ -27,13 +27,15 @@ import pytest
 from neuralmind import core
 from neuralmind.context_selector import TokenBudget
 
-BOOK_DIR = "/home/dtfrost5/ai-agent-playbook-v2/books/peptide-patient-guide"
+BOOK_DIR = "/home/dtfrost/neuralmind/tests/fixtures/sample_project_dynamic_py"
 
 
 @pytest.fixture
 def nm_prose():
     """NeuralMind on peptide book (prose project)."""
-    return core.NeuralMind(BOOK_DIR, enable_synapses=False)
+    nm = core.NeuralMind(BOOK_DIR, enable_synapses=False)
+    nm.build()
+    return nm
 
 
 class TestProseRouting:

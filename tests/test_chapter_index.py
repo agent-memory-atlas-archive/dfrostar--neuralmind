@@ -13,11 +13,15 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "neuralmind"))
 
 
-@pytest.fixture(scope="module")
+@ pytest.fixture(scope="module")
 def book_dirs(tmpdir_factory):
     base = tmpdir_factory.mktemp("book")
     book_dir = str(base)
     chapters_dir = str(base.mkdir("chapters"))
+    # Write .neuralmind.yaml to set mode to prose
+    config_path = os.path.join(book_dir, ".neuralmind.yaml")
+    with open(config_path, "w") as f:
+        f.write("mode: prose\n")
     # Create 11 chapter files with relevant content for the tests
     # Chapter 1: peptide definition
     with open(os.path.join(chapters_dir, "chapter_01.md"), "w") as f:
