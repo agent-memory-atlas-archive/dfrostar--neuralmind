@@ -93,3 +93,5 @@ evals/parity/parity_report.md
 # Claude Code personal dev config (hooks, settings)
 .claude/
 **/.neuralmind/extraction_cache.json
+tests/fixtures/sample_project/chapters/
+tests/fixtures/sample_project_dynamic_py/chapters/
