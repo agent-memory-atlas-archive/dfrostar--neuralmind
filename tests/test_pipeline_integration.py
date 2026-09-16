@@ -28,10 +28,13 @@ import pytest  # noqa: E402
 from neuralmind import core  # noqa: E402
 from neuralmind.context_selector import TokenBudget  # noqa: E402
 
-BOOK_DIR = str(REPO_ROOT / "tests" / "fixtures" / "sample_project_dynamic_py")
+BOOK_DIR = str(REPO_ROOT / "tests" / "fixtures" / "sample_project_prose")
 
 # Synthetic chapters for the prose fixture — written at import time so the
 # fixture is self-contained and never depends on committed book content.
+# A dedicated prose-only fixture is required because project_kind is derived
+# from the file mix: any .py file makes a project "code". The dynamic-import
+# fixture (sample_project_dynamic_py) must stay a code project for graphgen.
 _CHAPTERS_DIR = Path(BOOK_DIR) / "chapters"
 _CHAPTERS = {
     "chapter_01.md": (
@@ -73,12 +76,17 @@ _CHAPTERS = {
 
 
 def _write_synthetic_chapters() -> None:
-    """Ensure the prose fixture has chapter files (idempotent)."""
+    """Materialize the prose fixture on disk (idempotent).
+
+    The whole fixture is generated — chapters plus the ``mode: prose`` config —
+    so nothing book-derived is ever committed and the fixture can't drift.
+    """
     _CHAPTERS_DIR.mkdir(parents=True, exist_ok=True)
     for name, content in _CHAPTERS.items():
-        target = _CHAPTERS_DIR / name
-        if not target.exists():
-            target.write_text(content, encoding="utf-8")
+        (_CHAPTERS_DIR / name).write_text(content, encoding="utf-8")
+    # Prose-only fixture: no code files, so detect_project_kind() returns
+    # "prose" and queries route to MedicalRetriever.
+    (Path(BOOK_DIR) / ".neuralmind.yaml").write_text("mode: prose\n", encoding="utf-8")
 
 
 _write_synthetic_chapters()

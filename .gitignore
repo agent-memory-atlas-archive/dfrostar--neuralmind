@@ -57,6 +57,8 @@ tests/benchmark/multi_model.md
 tests/benchmark/peptide_results.json
 tests/benchmark/peptide_report.md
 tests/benchmark/peptide_queries.json
+# Generated test fixtures (self-contained, written at import time)
+tests/fixtures/sample_project_prose/
 # Book retrieval eval corpus (synthetic placeholders — real book content must never be committed)
 evals/book_retrieval/corpus/
 tests/fixtures/sample_project/graphify-out/
