@@ -2282,6 +2282,24 @@ def cmd_synapse_prune(args) -> None:
         print(f"✓ Pruned {pruned} synapses older than {args.days} days")
 
 
+def cmd_cognition_loop(args) -> None:
+    """Run background knowledge consolidation."""
+    from neuralmind.cognition_loop import run_cognition_loop
+
+    report = run_cognition_loop(args.project_path)
+    if args.json:
+        print(json.dumps(report.to_dict()))
+    else:
+        print(f"✓ Cognition loop complete in {report.duration_secs:.1f}s")
+        print(f"  Steps: {report.steps_taken}")
+        print(f"  Edges reinforced: {report.edges_reinforced}")
+        print(f"  Edges decayed: {report.edges_decayed}")
+        print(f"  Edges pruned: {report.edges_pruned}")
+        print(f"  Clusters consolidated: {report.clusters_consolidated}")
+        print(f"  Summaries pruned: {report.summaries_pruned}")
+        print(f"  Read cache cleared: {report.read_cache_cleared}")
+
+
 def cmd_synapse_stats(args) -> None:
     """Show detailed synapse stats."""
     from neuralmind.synapses import SynapseStore, default_db_path
@@ -5995,6 +6013,15 @@ def main():
     synapse_stats.add_argument("project_path", nargs="?", default=".")
     synapse_stats.add_argument("--json", "-j", action="store_true")
     synapse_stats.set_defaults(func=cmd_synapse_stats)
+
+    # Cognition loop subcommand
+    cognition_p = subparsers.add_parser(
+        "cognition-loop",
+        help="Run background knowledge consolidation (decay, coaccess reinforce, cluster promote, prune)",
+    )
+    cognition_p.add_argument("project_path", nargs="?", default=".")
+    cognition_p.add_argument("--json", "-j", action="store_true")
+    cognition_p.set_defaults(func=cmd_cognition_loop)
 
     mem_staleness_scan = memory_sub.add_parser(
         "staleness-scan",
