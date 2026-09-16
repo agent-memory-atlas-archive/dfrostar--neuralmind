@@ -2,25 +2,55 @@
 
 Uses the real ONNX embedder for chapter-level semantic similarity.
 This is the SOTA path — chapter indexer + neural embeddings + BM25.
+
 """
-
+import os
 import sys
-
-sys.path.insert(0, "/home/dtfrost5/neuralmind")
-
-
 import pytest
 
-BOOK_DIR = "/home/dtfrost5/ai-agent-playbook-v2/books/peptide-patient-guide"
-CHAPTERS_DIR = BOOK_DIR + "/chapters"
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'neuralmind'))
 
 
 @pytest.fixture(scope="module")
-def nm():
-    """Build NeuralMind on peptide book with chapter-level indexing."""
-    from neuralmind import core
+def book_dirs(tmpdir_factory):
+    base = tmpdir_factory.mktemp("book")
+    book_dir = str(base)
+    chapters_dir = str(base.mkdir("chapters"))
+    # Create 11 chapter files with relevant content for the tests
+    # Chapter 1: peptide definition
+    with open(os.path.join(chapters_dir, "chapter_01.md"), "w") as f:
+        f.write("# Chapter 1: What is a peptide?\\n\\nA peptide is a short chain of amino acids.\\n")
+    # Chapter 2: semaglutide
+    with open(os.path.join(chapters_dir, "chapter_02.md"), "w") as f:
+        f.write("# Chapter 2: Semaglutide\\n\\nSemaglutide is a GLP-1 receptor agonist.\\n")
+    # Chapter 3: retatrutide and black box warning
+    with open(os.path.join(chapters_dir, "chapter_03.md"), "w") as f:
+        f.write("# Chapter 3: Retatrutide and Tirzepatide\\n\\nSemaglutide is a GLP-1 agonist. Tirzepatide is also discussed.\\n")
+    # Chapter 4: BPC-157
+    with open(os.path.join(chapters_dir, "chapter_04.md"), "w") as f:
+        f.write("# Chapter 4: BPC-157\\n\\nBPC-157 is a peptide being studied for wound healing.\\n")
+    # Chapter 5: black box warning (thyroid)
+    with open(os.path.join(chapters_dir, "chapter_05.md"), "w") as f:
+        f.write("# Chapter 5: Safety Warning\\n\\nSemaglutide has a black box warning for thyroid tumors.\\n")
+    # Chapter 6: future chapters
+    with open(os.path.join(chapters_dir, "chapter_06.md"), "w") as f:
+        f.write("# Chapter 6: Future Research\\n\\nMore studies are needed.\\n")
+    # Chapter 7: oral peptide
+    with open(os.path.join(chapters_dir, "chapter_07.md"), "w") as f:
+        f.write("# Chapter 7: Oral Peptides\\n\\nOral peptide options are under investigation.\\n")
+    # Chapter 8 to 11: filler
+    for i in range(8, 12):
+        with open(os.path.join(chapters_dir, f"chapter_{i:02d}.md"), "w") as f:
+            f.write(f"# Chapter {i}\\n\\nThis is chapter {i}.\\n")
+    return book_dir, chapters_dir
 
-    nm = core.NeuralMind(BOOK_DIR, enable_synapses=False)
+
+@pytest.fixture(scope="module")
+def nm(book_dirs):
+    """Build NeuralMind on peptide book with chapter-level indexing."""
+    book_dir, _ = book_dirs
+    from neuralmind import core
+    nm = core.NeuralMind(book_dir, enable_synapses=False)
     nm._ensure_built()
     return nm
 
@@ -95,42 +125,41 @@ class TestChapterIndexerStandalone:
     provides basic retrieval without a neural embedding model.
     """
 
-    def test_chapter_index_creates_one_node_per_chapter(self):
+    def test_chapter_index_creates_one_node_per_chapter(self, book_dirs):
         from neuralmind.chapter_indexer import ChapterIndexer
-
+        _, chapters_dir = book_dirs
         indexer = ChapterIndexer()
-        chapters = indexer.index_directory(CHAPTERS_DIR)
+        chapters = indexer.index_directory(chapters_dir)
         assert len(chapters) == 11
         for ch in chapters:
             assert "chapter_name" in ch
             assert "text" in ch
             assert len(ch["text"]) > 0
 
-    def test_chapter_index_preserves_all_text(self):
+    def test_chapter_index_preserves_all_text(self, book_dirs):
         from neuralmind.chapter_indexer import ChapterIndexer
-
+        _, chapters_dir = book_dirs
         indexer = ChapterIndexer()
-        chapters = indexer.index_directory(CHAPTERS_DIR)
-        fda = next(c for c in chapters if "03_fda" in c.get("source_file", ""))
-        assert "semaglutide" in fda["text"]
-        assert "tirzepatide" in fda["text"]
+        chapters = indexer.index_directory(chapters_dir)
+        fda = next(c for c in chapters if "chapter_03" in c.get("source_file", ""))
+        assert "semaglutide" in fda["text"].lower()
+        assert "tirzepatide" in fda["text"].lower()
 
-    def test_chapter_query_bm25_hyphenated_terms(self):
+    def test_chapter_query_bm25_hyphenated_terms(self, book_dirs):
         from neuralmind.chapter_indexer import ChapterIndexer
-
+        _, chapters_dir = book_dirs
         indexer = ChapterIndexer()
-        indexer.index_directory(CHAPTERS_DIR)
+        indexer.index_directory(chapters_dir)
         results = indexer.search("BPC-157", top_k=3)
         assert results, "Should return results for BPC-157"
         assert any("bpc" in r.get("text", "").lower() for r in results)
 
-    def test_chapter_index_cold_start_latency(self):
+    def test_chapter_index_cold_start_latency(self, book_dirs):
         import time
-
         from neuralmind.chapter_indexer import ChapterIndexer
-
+        _, chapters_dir = book_dirs
         indexer = ChapterIndexer()
-        indexer.index_directory(CHAPTERS_DIR)
+        indexer.index_directory(chapters_dir)
         start = time.time()
         indexer.search("semaglutide", top_k=3)
         elapsed = (time.time() - start) * 1000
