@@ -13,7 +13,6 @@
 from __future__ import annotations
 
 import math
-import os
 import sys
 from pathlib import Path
 
@@ -36,6 +35,7 @@ CHAPTERS_DIR = FIXTURES_DIR / "chapters"
 MEDICAL_FIXTURES_DIR = REPO_ROOT / "tests" / "fixtures" / "sample_project_dynamic_py"
 MEDICAL_CHAPTERS_DIR = MEDICAL_FIXTURES_DIR / "chapters"
 
+
 # Fallback to creating synthetic chapters if fixtures don't exist
 def ensure_test_chapters():
     """Create test chapters if fixtures don't exist."""
@@ -44,25 +44,39 @@ def ensure_test_chapters():
         # Create 11 chapter files with relevant content for the tests
         # Chapter 1: peptide definition
         with open(MEDICAL_CHAPTERS_DIR / "chapter_01.md", "w") as f:
-            f.write("# Chapter 1: What is a peptide?\\n\\nA peptide is a short chain of amino acids.\\n")
+            f.write(
+                "# Chapter 1: What is a peptide?\\n\\nA peptide is a short chain of amino acids.\\n"
+            )
         # Chapter 2: semaglutide
         with open(MEDICAL_CHAPTERS_DIR / "chapter_02.md", "w") as f:
-            f.write("# Chapter 2: Semaglutide\\n\\nSemaglutide is a peptide drug that is a GLP-1 receptor agonist for diabetes.\\n")
+            f.write(
+                "# Chapter 2: Semaglutide\\n\\nSemaglutide is a peptide drug that is a GLP-1 receptor agonist for diabetes.\\n"
+            )
         # Chapter 3: retatrutide and black box warning
         with open(MEDICAL_CHAPTERS_DIR / "chapter_03.md", "w") as f:
-            f.write("# Chapter 3: Retatrutide and Tirzepatide\\n\\nSemaglutide is a peptide drug that is a GLP-1 agonist. Tirzepatide is also a peptide drug.\\n")
+            f.write(
+                "# Chapter 3: Retatrutide and Tirzepatide\\n\\nSemaglutide is a peptide drug that is a GLP-1 agonist. Tirzepatide is also a peptide drug.\\n"
+            )
         # Chapter 4: BPC-157
         with open(MEDICAL_CHAPTERS_DIR / "chapter_04.md", "w") as f:
-            f.write("# Chapter 4: BPC-157\\n\\nBPC-157 is a peptide being studied for wound healing.\\n")
+            f.write(
+                "# Chapter 4: BPC-157\\n\\nBPC-157 is a peptide being studied for wound healing.\\n"
+            )
         # Chapter 5: black box warning (thyroid)
         with open(MEDICAL_CHAPTERS_DIR / "chapter_05.md", "w") as f:
-            f.write("# Chapter 5: Safety Warning\\n\\nSemaglutide is a peptide that has a black box warning for thyroid tumors.\\n")
+            f.write(
+                "# Chapter 5: Safety Warning\\n\\nSemaglutide is a peptide that has a black box warning for thyroid tumors.\\n"
+            )
         # Chapter 6: future chapters
         with open(MEDICAL_CHAPTERS_DIR / "chapter_06.md", "w") as f:
-            f.write("# Chapter 6: Future Research\\n\\nMore studies on peptide drugs are needed.\\n")
+            f.write(
+                "# Chapter 6: Future Research\\n\\nMore studies on peptide drugs are needed.\\n"
+            )
         # Chapter 7: oral peptide
         with open(MEDICAL_CHAPTERS_DIR / "chapter_07.md", "w") as f:
-            f.write("# Chapter 7: Oral Peptides\\n\\nOral peptide options are under investigation.\\n")
+            f.write(
+                "# Chapter 7: Oral Peptides\\n\\nOral peptide options are under investigation.\\n"
+            )
         # Chapter 8 to 11: filler
         for i in range(8, 12):
             with open(MEDICAL_CHAPTERS_DIR / f"chapter_{i:02d}.md", "w") as f:
@@ -324,7 +338,10 @@ class TestAdversarialQA:
         # Queries with known expected chapters
         test_queries = [
             ("What is a peptide?", "chapter_01.md"),
-            ("How does semaglutide work?", ["chapter_02.md", "chapter_03.md"]),  # Mechanism or FDA chapter
+            (
+                "How does semaglutide work?",
+                ["chapter_02.md", "chapter_03.md"],
+            ),  # Mechanism or FDA chapter
             ("What is BPC-157?", "chapter_04.md"),
             ("What is the black box warning?", "chapter_05.md"),
             ("What is tirzepatide?", "chapter_03.md"),  # FDA chapter

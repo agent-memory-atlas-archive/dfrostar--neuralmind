@@ -12,7 +12,7 @@ class TestNeuralMindInit:
         from neuralmind import NeuralMind
 
         mind = NeuralMind(str(temp_project))
-        assert mind.project_path == Path(temp_project)
+        assert mind.project_path == Path(temp_project).resolve()
         # graph_path is on the embedder, not NeuralMind directly
         assert mind.embedder.graph_path.exists()
 

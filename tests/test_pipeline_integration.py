@@ -19,7 +19,7 @@ generation is ~60s in this environment).
 
 import sys
 
-sys.path.insert(0, '/home/dtfrost5/neuralmind')
+sys.path.insert(0, "/home/dtfrost5/neuralmind")
 
 
 import pytest
@@ -33,8 +33,7 @@ BOOK_DIR = "/home/dtfrost5/ai-agent-playbook-v2/books/peptide-patient-guide"
 @pytest.fixture
 def nm_prose():
     """NeuralMind on peptide book (prose project)."""
-    nm = core.NeuralMind(BOOK_DIR, enable_synapses=False)
-    return nm
+    return core.NeuralMind(BOOK_DIR, enable_synapses=False)
 
 
 class TestProseRouting:
@@ -61,32 +60,32 @@ class TestContextResultCompatibility:
     def test_result_has_context_field(self, nm_prose):
         """Result must have a non-empty context string."""
         result = nm_prose.query("What is a peptide?")
-        assert hasattr(result, 'context')
+        assert hasattr(result, "context")
         assert isinstance(result.context, str)
         assert len(result.context) > 0
 
     def test_result_has_budget_field(self, nm_prose):
         """Result must have a TokenBudget."""
         result = nm_prose.query("What is a peptide?")
-        assert hasattr(result, 'budget')
+        assert hasattr(result, "budget")
         assert isinstance(result.budget, TokenBudget)
 
     def test_result_has_search_hits(self, nm_prose):
         """Result must report search_hits count."""
         result = nm_prose.query("What is a peptide?")
-        assert hasattr(result, 'search_hits')
+        assert hasattr(result, "search_hits")
         assert result.search_hits >= 0
 
     def test_result_has_reduction_ratio(self, nm_prose):
         """Result must have reduction_ratio."""
         result = nm_prose.query("What is a peptide?")
-        assert hasattr(result, 'reduction_ratio')
+        assert hasattr(result, "reduction_ratio")
         assert result.reduction_ratio >= 0.0
 
     def test_result_has_top_search_hits(self, nm_prose):
         """Result must have top_search_hits list."""
         result = nm_prose.query("What is a peptide?")
-        assert hasattr(result, 'top_search_hits')
+        assert hasattr(result, "top_search_hits")
         assert isinstance(result.top_search_hits, list)
 
 
@@ -110,7 +109,11 @@ class TestNegativeQuery:
     def test_off_topic_query_fallback(self, nm_prose):
         """Off-topic query should return fallback message."""
         result = nm_prose.query("How to cook pasta?")
-        assert "[Confidence: LOW]" in result.context or "Consult a healthcare provider" in result.context or result.search_hits == 0
+        assert (
+            "[Confidence: LOW]" in result.context
+            or "Consult a healthcare provider" in result.context
+            or result.search_hits == 0
+        )
 
 
 class TestEndToEnd:
@@ -121,10 +124,10 @@ class TestEndToEnd:
         result = nm_prose.query("How does semaglutide work in the body?")
         assert result.context != ""
         ctx_lower = result.context.lower()
-        assert 'glp-1' in ctx_lower or 'semaglutide' in ctx_lower or 'chapter' in ctx_lower
+        assert "glp-1" in ctx_lower or "semaglutide" in ctx_lower or "chapter" in ctx_lower
 
     def test_black_box_returns_safety_chapter(self, nm_prose):
         """'Black box warning' should return safety chapter content."""
         result = nm_prose.query("What is the black box warning on semaglutide?")
         ctx_lower = result.context.lower()
-        assert 'black box' in ctx_lower or 'thyroid' in ctx_lower or 'chapter' in ctx_lower
+        assert "black box" in ctx_lower or "thyroid" in ctx_lower or "chapter" in ctx_lower

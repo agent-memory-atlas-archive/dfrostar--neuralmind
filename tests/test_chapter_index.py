@@ -4,11 +4,13 @@ Uses the real ONNX embedder for chapter-level semantic similarity.
 This is the SOTA path — chapter indexer + neural embeddings + BM25.
 
 """
+
 import os
 import sys
+
 import pytest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'neuralmind'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "neuralmind"))
 
 
 @pytest.fixture(scope="module")
@@ -19,19 +21,27 @@ def book_dirs(tmpdir_factory):
     # Create 11 chapter files with relevant content for the tests
     # Chapter 1: peptide definition
     with open(os.path.join(chapters_dir, "chapter_01.md"), "w") as f:
-        f.write("# Chapter 1: What is a peptide?\\n\\nA peptide is a short chain of amino acids.\\n")
+        f.write(
+            "# Chapter 1: What is a peptide?\\n\\nA peptide is a short chain of amino acids.\\n"
+        )
     # Chapter 2: semaglutide
     with open(os.path.join(chapters_dir, "chapter_02.md"), "w") as f:
         f.write("# Chapter 2: Semaglutide\\n\\nSemaglutide is a GLP-1 receptor agonist.\\n")
     # Chapter 3: retatrutide and black box warning
     with open(os.path.join(chapters_dir, "chapter_03.md"), "w") as f:
-        f.write("# Chapter 3: Retatrutide and Tirzepatide\\n\\nSemaglutide is a GLP-1 agonist. Tirzepatide is also discussed.\\n")
+        f.write(
+            "# Chapter 3: Retatrutide and Tirzepatide\\n\\nSemaglutide is a GLP-1 agonist. Tirzepatide is also discussed.\\n"
+        )
     # Chapter 4: BPC-157
     with open(os.path.join(chapters_dir, "chapter_04.md"), "w") as f:
-        f.write("# Chapter 4: BPC-157\\n\\nBPC-157 is a peptide being studied for wound healing.\\n")
+        f.write(
+            "# Chapter 4: BPC-157\\n\\nBPC-157 is a peptide being studied for wound healing.\\n"
+        )
     # Chapter 5: black box warning (thyroid)
     with open(os.path.join(chapters_dir, "chapter_05.md"), "w") as f:
-        f.write("# Chapter 5: Safety Warning\\n\\nSemaglutide has a black box warning for thyroid tumors.\\n")
+        f.write(
+            "# Chapter 5: Safety Warning\\n\\nSemaglutide has a black box warning for thyroid tumors.\\n"
+        )
     # Chapter 6: future chapters
     with open(os.path.join(chapters_dir, "chapter_06.md"), "w") as f:
         f.write("# Chapter 6: Future Research\\n\\nMore studies are needed.\\n")
@@ -50,6 +60,7 @@ def nm(book_dirs):
     """Build NeuralMind on peptide book with chapter-level indexing."""
     book_dir, _ = book_dirs
     from neuralmind import core
+
     nm = core.NeuralMind(book_dir, enable_synapses=False)
     nm._ensure_built()
     return nm
@@ -127,6 +138,7 @@ class TestChapterIndexerStandalone:
 
     def test_chapter_index_creates_one_node_per_chapter(self, book_dirs):
         from neuralmind.chapter_indexer import ChapterIndexer
+
         _, chapters_dir = book_dirs
         indexer = ChapterIndexer()
         chapters = indexer.index_directory(chapters_dir)
@@ -138,6 +150,7 @@ class TestChapterIndexerStandalone:
 
     def test_chapter_index_preserves_all_text(self, book_dirs):
         from neuralmind.chapter_indexer import ChapterIndexer
+
         _, chapters_dir = book_dirs
         indexer = ChapterIndexer()
         chapters = indexer.index_directory(chapters_dir)
@@ -147,6 +160,7 @@ class TestChapterIndexerStandalone:
 
     def test_chapter_query_bm25_hyphenated_terms(self, book_dirs):
         from neuralmind.chapter_indexer import ChapterIndexer
+
         _, chapters_dir = book_dirs
         indexer = ChapterIndexer()
         indexer.index_directory(chapters_dir)
@@ -156,7 +170,9 @@ class TestChapterIndexerStandalone:
 
     def test_chapter_index_cold_start_latency(self, book_dirs):
         import time
+
         from neuralmind.chapter_indexer import ChapterIndexer
+
         _, chapters_dir = book_dirs
         indexer = ChapterIndexer()
         indexer.index_directory(chapters_dir)
