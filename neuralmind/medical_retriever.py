@@ -1,16 +1,25 @@
 """medical_retriever.py — Purpose-built medical book retriever for NeuralMind.
 
 A greenfield retrieval engine for medical/prose content. NOT a retrofit of the
-code-retrieval pipeline. Treats each chapter as ONE document, uses medical-aware
-embeddings, implements confidence gating, and targets medical-grade precision.
+code-retrieval pipeline. Treats each chapter as ONE document with H2 sections
+as sub-documents, uses medical-aware embeddings, implements confidence gating,
+and targets medical-grade precision.
 
 Architecture:
 - MedicalEmbedder: ONNX-based embeddings (multilingual-e5-large) with TF-IDF fallback
-- ChapterIndexer: BM25 + embedding hybrid index over chapter documents
+- ChapterIndexer: BM25 + embedding hybrid index with section-level sub-documents
 - ConfidenceFlagger: per-chapter confidence gating (HIGH/MEDIUM/LOW)
 - MedicalRetriever: orchestrator returning ContextResult with confidence flags
 
-Targets: Precision@5 ≥ 80%, Recall@1 ≥ 85%, Fact Recall ≥ 75%, P95 < 500ms
+Optimizations v2:
+- Expanded terminology (200+ terms) for query expansion
+- Fuzzy heading matching with partial/section-aware scoring
+- Cross-chapter comparison detection and result merging
+- Numeric fact boosting for data/table sections
+- Chapter-section two-level indexing (H2 as sub-documents)
+- Query intent classification (mechanism/safety/comparison/definition/numeric/regulatory)
+
+Targets: Precision@5 ≥ 80%, Recall@1 ≥ 85%, Fact Recall ≥ 90%, P95 < 500ms
 """
 
 from __future__ import annotations
@@ -163,33 +172,223 @@ class MedicalEmbedder:
 
 
 # ---------------------------------------------------------------------------
-# ChapterIndexer — BM25 + embedding hybrid index over chapter documents
+# Query Intent Classification
+# ---------------------------------------------------------------------------
+@dataclass
+class QueryIntent:
+    """Classified intent of a medical query."""
+    primary: str = "general"     # mechanism, safety, comparison, definition, numeric, regulatory, general
+    secondary: str = ""          # optional secondary intent
+    comparison_entities: list[str] = field(default_factory=list)
+    numeric_signal: bool = False
+    drug_names: list[str] = field(default_factory=list)
+
+
+# Intent keyword patterns for classification
+INTENT_PATTERNS: dict[str, list[str]] = {
+    "mechanism": [
+        "how does", "how it works", "mechanism", "work in the body",
+        "pathway", "receptor", "agonis", "activate", "stimulate",
+        "function of", "role of", "mode of action", "moa",
+    ],
+    "safety": [
+        "side effect", "risk", "danger", "warning", "safety",
+        "adverse", "contraindication", "precaution", "toxic",
+        "black box", "allergic", "overdose", "harmful",
+        "interaction", "safe to", "should i be concerned",
+    ],
+    "comparison": [
+        "differ", "compare", "versus", "vs ", " vs ",
+        "or ", "which is", "better", "difference between",
+        "pros and cons", "tradeoff", "head-to-head",
+    ],
+    "definition": [
+        "what is", "what are", "define", "definition", "meaning of",
+        "explain", "describe", "tell me about", "who is",
+        "what does", "how do you define",
+    ],
+    "numeric": [
+        "how much", "how many", "percentage", "dosage", "dose",
+        "mg ", "milligram", "cost", "price", "average",
+        "percent", "rate", "number of", "what percentage",
+        "statistics", "how long", "duration of action",
+        "half-life", "efficacy rate",
+    ],
+    "regulatory": [
+        "fda", "approval", "approved", "regulat", "pcac",
+        "nda", "anda", "clinical trial", "phase 1", "phase 2",
+        "phase 3", "compounding", "503a", "503b", "prescription",
+        "off-label", "legality", "legal status", "prescribed",
+    ],
+}
+
+# Comparison patterns for entity extraction
+COMPARISON_CONNECTORS = [
+    r"\bvs\.?\b", r"\bversus\b", r"\bdifference\s+between\b",
+    r"\bcompare\b", r"\bwhich\s+is\b", r"\bhow\s+does\s+(.+?)\s+differ\s+from\s+(.+?)\?",
+    r"\b(.+?)\s+or\s+(.+?)\?",
+    r"\b(.+?)\s+compared\s+to\s+(.+?)\b",
+]
+
+
+def classify_query_intent(query: str) -> QueryIntent:
+    """Classify the intent of a medical query.
+
+    Analyzes keyword patterns, numeric signals, and comparison patterns
+    to determine the query's primary intent for targeted retrieval.
+
+    Args:
+        query: The user's query string.
+
+    Returns:
+        QueryIntent with primary intent, comparison entities, and signals.
+    """
+    q_lower = query.lower()
+    intent = QueryIntent()
+
+    # Score each intent category
+    scores: dict[str, int] = {}
+    for intent_name, patterns in INTENT_PATTERNS.items():
+        score = sum(1 for p in patterns if p in q_lower)
+        if score > 0:
+            scores[intent_name] = score
+
+    if scores:
+        intent.primary = max(scores, key=scores.get)
+        # Check for secondary intent
+        sorted_intents = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+        if len(sorted_intents) > 1 and sorted_intents[1][1] > 0:
+            intent.secondary = sorted_intents[1][0]
+
+    # Detect numeric signal
+    numeric_patterns = r"\b\d+|%|percent|mg|milligram|mcg|ml|dose|dosage"
+    intent.numeric_signal = bool(re.search(numeric_patterns, q_lower))
+
+    # Detect comparison and extract entities
+    for pattern in COMPARISON_CONNECTORS:
+        match = re.search(pattern, q_lower, re.IGNORECASE)
+        if match:
+            intent.primary = "comparison"
+            # Try to extract entities being compared
+            groups = match.groups()
+            if groups:
+                for g in groups:
+                    if g and len(g) > 2:
+                        intent.comparison_entities.append(g.strip())
+            break
+
+    # Extract drug names (simple heuristic: proper nouns + known patterns)
+    known_drugs = [
+        "semaglutide", "tirzepatide", "liraglutide", "dulaglutide",
+        "exenatide", "retatrutide", "bpc-157", "tb-500", "cjc-1295",
+        "sermorelin", "ipamorelin", "dsip", "emideltide", "ozempic",
+        "wegovy", "mounjaro", "zepbound", "rybelsus", "victoza",
+        "saxenda", "trulicity", "epitalon", "mots-c", "pt-141",
+    ]
+    for drug in known_drugs:
+        if drug in q_lower:
+            intent.drug_names.append(drug)
+
+    return intent
+
+
+# ---------------------------------------------------------------------------
+# Heading-Token Matching with Fuzzy/Partial Support
+# ---------------------------------------------------------------------------
+def compute_heading_score(query_tokens: set[str], heading_text: str) -> float:
+    """Compute a fuzzy heading match score.
+
+    Supports:
+    - Exact token overlap (existing behavior)
+    - Partial token matching (e.g., "black box" matches "The Black Box Warning")
+    - Substring matching for key phrases
+
+    Args:
+        query_tokens: Set of query tokens.
+        heading_text: The heading text to match against.
+
+    Returns:
+        Score from 0.0 to 1.0.
+    """
+    if not query_tokens or not heading_text:
+        return 0.0
+
+    heading_lower = heading_text.lower()
+    heading_tokens = set(_tokenize_prose(heading_text))
+
+    # Exact token overlap
+    exact_overlap = query_tokens & heading_tokens
+    exact_score = len(exact_overlap) / max(1, len(query_tokens))
+
+    # Partial/fuzzy matching: check if query tokens are substrings of heading tokens
+    partial_matches = 0
+    for qt in query_tokens:
+        for ht in heading_tokens:
+            if qt in ht or ht in qt:
+                partial_matches += 1
+                break
+    partial_score = partial_matches / max(1, len(query_tokens))
+
+    # Phrase-level matching: check if multi-word query appears in heading
+    phrase_score = 0.0
+    query_lower = " ".join(sorted(query_tokens))
+    if query_lower in heading_lower:
+        phrase_score = 1.0
+    else:
+        # Check if any 2+ token phrase from query appears in heading
+        query_token_list = sorted(query_tokens)
+        for i in range(len(query_token_list)):
+            for j in range(i + 2, min(i + 5, len(query_token_list) + 1)):
+                phrase = " ".join(query_token_list[i:j])
+                if phrase in heading_lower:
+                    phrase_score = max(phrase_score, len(phrase.split()) / len(query_tokens))
+
+    # Weighted combination
+    return max(exact_score * 0.5 + partial_score * 0.3 + phrase_score * 0.2, exact_score)
+
+
+# ---------------------------------------------------------------------------
+# ChapterIndexer — BM25 + embedding hybrid index with section-level sub-documents
 # ---------------------------------------------------------------------------
 @dataclass
 class ChapterDocument:
     """A single indexed chapter."""
-
     source_file: str
     chapter_name: str
     text: str
     heading_tokens: set[str] = field(default_factory=set)
+    sections: list[dict[str, Any]] = field(default_factory=list)  # H2 sections
+
+
+@dataclass
+class SectionDocument:
+    """A sub-document representing an H2 section within a chapter."""
+    source_file: str
+    chapter_name: str
+    section_title: str
+    text: str
+    heading_tokens: set[str]
+    parent_index: int  # index of parent chapter in _documents
 
 
 class ChapterIndexer:
-    """Index markdown chapters as single documents for hybrid retrieval.
+    """Index markdown chapters as single documents with section-level sub-documents.
 
     Builds:
     - BM25 index over chapter documents (prose tokenizer)
+    - BM25 index over H2 section sub-documents
     - Embedding index via MedicalEmbedder
     - Heading token sets for title matching
+    - Section-aware scoring for precision
 
-    Search combines BM25 + embedding + heading match with Claims Register
+    Search combines BM25 + embedding + heading match + section boost with Claims Register
     downweighting so reference tables cannot outrank clinical content.
     """
 
     def __init__(self, embedder: MedicalEmbedder | None = None) -> None:
         self._embedder = embedder or MedicalEmbedder()
         self._documents: list[ChapterDocument] = []
+        self._sections: list[SectionDocument] = []
         self._tf: list[dict[str, int]] = []
         self._dl: list[int] = []
         self._df: dict[str, int] = {}
@@ -197,6 +396,13 @@ class ChapterIndexer:
         self._avgdl: float = 0.0
         self._n: int = 0
         self._embeddings: list[list[float]] = []
+        # Section-level BM25
+        self._section_tf: list[dict[str, int]] = []
+        self._section_dl: list[int] = []
+        self._section_df: dict[str, int] = {}
+        self._section_idf: dict[str, float] = {}
+        self._section_avgdl: float = 0.0
+        self._section_embeddings: list[list[float]] = []
 
     @property
     def num_chapters(self) -> int:
@@ -219,19 +425,21 @@ class ChapterIndexer:
             text = md_file.read_text(encoding="utf-8")
             chapter_name = self._derive_chapter_name(md_file)
             heading_tokens = self._extract_heading_tokens(text)
+            sections = self._extract_sections(text, md_file.name, chapter_name)
             chapters.append(
                 ChapterDocument(
                     source_file=md_file.name,
                     chapter_name=chapter_name,
                     text=text,
                     heading_tokens=heading_tokens,
+                    sections=sections,
                 )
             )
 
         self._documents = chapters
         self._n = len(chapters)
 
-        # Build BM25 structures
+        # Build chapter-level BM25 structures
         self._tf = []
         self._dl = []
         for doc in chapters:
@@ -244,6 +452,9 @@ class ChapterIndexer:
 
         self._build_bm25()
 
+        # Build section-level BM25 structures
+        self._build_section_index()
+
         # Build embeddings
         texts = [doc.text for doc in chapters]
         if not self._embedder.using_onnx:
@@ -252,6 +463,14 @@ class ChapterIndexer:
             self._embeddings = self._embedder.embed(texts)
         except Exception:
             self._embeddings = [self._embedder._tfidf_embed(t) for t in texts]
+
+        # Build section embeddings
+        if self._sections:
+            section_texts = [s.text for s in self._sections]
+            try:
+                self._section_embeddings = self._embedder.embed(section_texts)
+            except Exception:
+                self._section_embeddings = [self._embedder._tfidf_embed(t) for t in section_texts]
 
         return chapters
 
@@ -282,6 +501,54 @@ class ChapterIndexer:
                 tokens.update(_tokenize_prose(m.group(2)))
         return tokens
 
+    def _extract_sections(self, text: str, source_file: str, chapter_name: str) -> list[dict[str, Any]]:
+        """Extract H2 sections as separate sub-documents for two-level indexing.
+
+        Each H2 section becomes a searchable unit. H3 subsections are included
+        within their parent H2 section.
+        """
+        sections: list[dict[str, Any]] = []
+        current_section: dict[str, Any] | None = None
+        in_fence = False
+
+        for line in text.split("\n"):
+            stripped = line.strip()
+            if stripped.startswith(("```", "~~~")):
+                in_fence = not in_fence
+                if current_section is not None:
+                    current_section["text"] += line + "\n"
+                continue
+            if in_fence:
+                if current_section is not None:
+                    current_section["text"] += line + "\n"
+                continue
+
+            h2_match = re.match(r"^##\s+(.+)", stripped)
+            h3_match = re.match(r"^###\s+(.+)", stripped)
+
+            if h2_match:
+                # Save previous section
+                if current_section is not None:
+                    sections.append(current_section)
+                current_section = {
+                    "title": h2_match.group(1).strip(),
+                    "text": "",
+                    "heading_tokens": set(_tokenize_prose(h2_match.group(1))),
+                }
+            elif h3_match and current_section is not None:
+                # H3 is part of current H2 section
+                current_section["heading_tokens"].update(_tokenize_prose(h3_match.group(1)))
+                current_section["text"] += line + "\n"
+            else:
+                if current_section is not None:
+                    current_section["text"] += line + "\n"
+
+        # Don't forget the last section
+        if current_section is not None:
+            sections.append(current_section)
+
+        return sections
+
     def _build_bm25(self) -> None:
         """Compute IDF and avgdl from the current document set."""
         if self._n == 0:
@@ -298,19 +565,62 @@ class ChapterIndexer:
             term: math.log((self._n - df + 0.5) / (df + 0.5) + 1) for term, df in self._df.items()
         }
 
-    def search(self, query: str, top_k: int = 5) -> list[dict[str, Any]]:
-        """Hybrid chapter search: BM25 + embedding + heading-title match.
+    def _build_section_index(self) -> None:
+        """Build section-level BM25 index from chapter sections."""
+        self._sections = []
+        for doc_idx, doc in enumerate(self._documents):
+            for section in doc.sections:
+                if section["text"].strip():
+                    self._sections.append(SectionDocument(
+                        source_file=doc.source_file,
+                        chapter_name=doc.chapter_name,
+                        section_title=section["title"],
+                        text=section["text"],
+                        heading_tokens=section["heading_tokens"],
+                        parent_index=doc_idx,
+                    ))
 
-        Weights: 0.35 * bm25 + 0.25 * embedding + 0.40 * heading_match.
-        Claims Register (reference table) is downweighted by 0.4×.
+        # Build section BM25
+        self._section_tf = []
+        self._section_dl = []
+        for sec in self._sections:
+            tokens = _tokenize_prose(sec.text)
+            tf: dict[str, int] = {}
+            for t in tokens:
+                tf[t] = tf.get(t, 0) + 1
+            self._section_tf.append(tf)
+            self._section_dl.append(len(tokens))
+
+        if not self._sections:
+            return
+
+        self._section_avgdl = sum(self._section_dl) / len(self._sections)
+        self._section_df = {}
+        for tf_map in self._section_tf:
+            for term in tf_map:
+                self._section_df[term] = self._section_df.get(term, 0) + 1
+        self._section_idf = {
+            term: math.log((len(self._sections) - df + 0.5) / (df + 0.5) + 1)
+            for term, df in self._section_df.items()
+        }
+
+    def search(self, query: str, top_k: int = 5, intent: QueryIntent | None = None) -> list[dict[str, Any]]:
+        """Hybrid chapter search: BM25 + embedding + heading-title match + section boost.
+
+        Weights: 0.30 * bm25 + 0.35 * embedding + 0.20 * heading_match + 0.15 * section_match.
+        Claims Register (reference table) is downweighted by 0.3×.
+        Front-matter is downweighted by 0.5×.
+        Numeric queries boost data/table sections.
+        Intent-based boosting adjusts weights dynamically.
 
         Args:
             query: Search query string.
             top_k: Maximum number of results to return.
+            intent: Optional query intent for targeted boosting.
 
         Returns:
             List of result dicts with keys: source_file, chapter_name, text,
-            score, bm25_score, embedding_score, heading_match_score.
+            score, bm25_score, embedding_score, heading_match_score, section_boost.
         """
         if self._n == 0 or os.environ.get("NEURALMIND_BM25") == "0":
             return []
@@ -319,10 +629,14 @@ class ChapterIndexer:
         if not q_tokens:
             return []
 
-        # --- BM25 ---
+        # Apply terminology expansion for better matching
+        from neuralmind.terminology import expand_tokens
+        expanded_tokens = expand_tokens(q_tokens)
+
+        # --- BM25 (chapter level) ---
         bm25_scores: dict[int, float] = {}
         k1, b, avgdl = 1.5, 0.75, self._avgdl
-        for term in q_tokens:
+        for term in expanded_tokens:
             if term not in self._idf:
                 continue
             idf = self._idf[term]
@@ -345,32 +659,78 @@ class ChapterIndexer:
                 nq = math.sqrt(sum(a * a for a in q_vec))
                 if nq > 0:
                     for i, doc_vec in enumerate(self._embeddings):
-                        dot = sum(a * bb for a, bb in zip(q_vec, doc_vec, strict=True))
+                        min_len = min(len(q_vec), len(doc_vec))
+                        dot = sum(a * bb for a, bb in zip(q_vec[:min_len], doc_vec[:min_len], strict=False))
                         nd = math.sqrt(sum(bb * bb for bb in doc_vec))
                         if nd > 0:
                             embedding_scores[i] = dot / (nq * nd)
             except Exception:
                 pass
 
-        # --- Heading-title match ---
+        # --- Heading-title match (fuzzy) ---
         heading_scores: dict[int, float] = {}
         q_set = set(q_tokens)
         for i, doc in enumerate(self._documents):
-            overlap = q_set & doc.heading_tokens
-            if overlap:
-                heading_scores[i] = min(1.0, len(overlap) / max(1, len(q_set)))
+            # Use fuzzy heading matching
+            score = compute_heading_score(q_set, " ".join(doc.heading_tokens))
+            if score > 0:
+                heading_scores[i] = score
+
+        # --- Section-level boost ---
+        section_boost: dict[int, float] = {}
+        if self._sections:
+            for sec_idx, sec in enumerate(self._sections):
+                # Check if section heading matches query
+                sec_heading_score = compute_heading_score(q_set, sec.section_title)
+                if sec_heading_score > 0.3:
+                    parent = sec.parent_index
+                    section_boost[parent] = max(section_boost.get(parent, 0.0), sec_heading_score)
 
         # --- Combine ---
         all_indices = set(bm25_scores) | set(embedding_scores) | set(heading_scores)
         if not all_indices:
             return []
 
-        combined: list[tuple[int, float, float, float, float]] = []
+        # Determine intent-based weights
+        bm25_weight = 0.30
+        emb_weight = 0.35
+        head_weight = 0.20
+        section_weight = 0.15
+
+        if intent:
+            if intent.primary == "numeric":
+                # For numeric queries, boost embedding (semantic) and section matches
+                bm25_weight = 0.20
+                emb_weight = 0.40
+                head_weight = 0.15
+                section_weight = 0.25
+            elif intent.primary == "comparison":
+                # For comparison, boost heading and section matches
+                bm25_weight = 0.25
+                emb_weight = 0.30
+                head_weight = 0.25
+                section_weight = 0.20
+            elif intent.primary == "definition":
+                # For definitions, boost heading match
+                bm25_weight = 0.25
+                emb_weight = 0.30
+                head_weight = 0.30
+                section_weight = 0.15
+            elif intent.primary == "regulatory":
+                # For regulatory, boost BM25 (exact terms) and heading
+                bm25_weight = 0.35
+                emb_weight = 0.25
+                head_weight = 0.25
+                section_weight = 0.15
+
+        combined: list[tuple[int, float, float, float, float, float]] = []
         for i in all_indices:
             bm25 = bm25_scores.get(i, 0.0)
             emb = embedding_scores.get(i, 0.0)
             head = heading_scores.get(i, 0.0)
-            score = 0.30 * bm25 + 0.45 * emb + 0.25 * head
+            sec = section_boost.get(i, 0.0)
+            score = bm25_weight * bm25 + emb_weight * emb + head_weight * head + section_weight * sec
+
             # Downweight reference material — glossary/back-matter and
             # Claims Register are lookup tables, not primary content chapters.
             # Their dense term repetition hijacks BM25/embedding scores.
@@ -379,7 +739,18 @@ class ChapterIndexer:
                 score *= 0.3
             elif "front-matter" in src:
                 score *= 0.5
-            combined.append((i, score, bm25, emb, head))
+
+            # Numeric fact boost: if query is numeric, boost chapters with tables/data
+            if intent and intent.numeric_signal:
+                doc_text = self._documents[i].text.lower()
+                has_numbers = bool(re.search(r"\b\d+\.?\d*\s*(%|mg|mcg|ml|percent)", doc_text))
+                has_tables = "|" in doc_text and "---" in doc_text
+                if has_numbers:
+                    score *= 1.2
+                if has_tables:
+                    score *= 1.1
+
+            combined.append((i, score, bm25, emb, head, sec))
 
         combined.sort(key=lambda x: x[1], reverse=True)
         ranked = combined[:top_k]
@@ -396,9 +767,56 @@ class ChapterIndexer:
                 "bm25_score": bm25,
                 "embedding_score": emb,
                 "heading_match_score": head,
+                "section_boost": sec,
             }
-            for i, score, bm25, emb, head in ranked
+            for i, score, bm25, emb, head, sec in ranked
         ]
+
+    def search_multi_entity(self, entities: list[str], top_k: int = 5) -> list[dict[str, Any]]:
+        """Search for multiple entities and merge results ensuring both appear.
+
+        For comparison queries: retrieve top chapters for EACH entity,
+        then merge results ensuring both perspectives appear in top-K.
+
+        Args:
+            entities: List of entity names to search for.
+            top_k: Maximum total results to return.
+
+        Returns:
+            Merged list of result dicts with deduplication.
+        """
+        if not entities:
+            return []
+
+        all_results: dict[str, dict[str, Any]] = {}  # source_file -> result
+        per_entity_results: list[list[dict[str, Any]]] = []
+
+        for entity in entities:
+            results = self.search(entity, top_k=top_k)
+            per_entity_results.append(results)
+            for r in results:
+                src = r["source_file"]
+                if src not in all_results or r["score"] > all_results[src]["score"]:
+                    all_results[src] = r
+
+        # Ensure each entity contributes at least one result to top-K
+        merged: list[dict[str, Any]] = []
+        used_sources: set[str] = set()
+
+        # Round-robin: take one from each entity's results
+        for results in per_entity_results:
+            for r in results:
+                if r["source_file"] not in used_sources:
+                    merged.append(r)
+                    used_sources.add(r["source_file"])
+                    break
+
+        # Fill remaining slots with highest-scored results
+        remaining = [r for r in all_results.values() if r["source_file"] not in used_sources]
+        remaining.sort(key=lambda x: x["score"], reverse=True)
+        merged.extend(remaining)
+
+        return merged[:top_k]
 
 
 # ---------------------------------------------------------------------------
@@ -408,9 +826,9 @@ class ConfidenceFlagger:
     """Computes confidence per chapter and gates low-confidence results.
 
     Confidence = best_node_score * (1 + heading_match_boost)
-    HIGH: score >= 0.8
-    MEDIUM: 0.5 <= score < 0.8
-    LOW: score < 0.5
+    HIGH: score >= 0.70
+    MEDIUM: 0.40 <= score < 0.70
+    LOW: score < 0.40
 
     For MEDIUM: adds warning "⚠️ MEDIUM CONFIDENCE — verify with prescriber"
     For LOW: REPLACES content with "No reliable match found. Consult a healthcare provider."
@@ -490,6 +908,7 @@ class MedicalContextResult:
     confidence_labels: list[str] = field(default_factory=list)
     fallback_used: bool = False
     fallback_message: str = ""
+    intent: str = ""
 
 
 class MedicalRetriever:
@@ -498,6 +917,13 @@ class MedicalRetriever:
     Provides a simple interface: build() indexes chapters, query() retrieves
     relevant chapters with confidence flags. No synapse layer, no community
     detection, no progressive disclosure — just the right chapters with text.
+
+    Optimizations:
+    - Query intent classification for targeted retrieval
+    - Cross-chapter comparison detection and result merging
+    - Numeric fact boosting for data/table sections
+    - Section-aware scoring for precision
+    - Terminology expansion for better recall
     """
 
     def __init__(
@@ -554,7 +980,20 @@ class MedicalRetriever:
                 fallback_message=("No reliable match found. Consult a healthcare provider."),
             )
 
-        results = self._indexer.search(question, top_k=top_k)
+        # Classify query intent
+        intent = classify_query_intent(question)
+
+        # Handle comparison queries with multi-entity search
+        if intent.primary == "comparison" and len(intent.comparison_entities) >= 2:
+            results = self._indexer.search_multi_entity(
+                intent.comparison_entities, top_k=top_k
+            )
+        elif intent.primary == "comparison" and len(intent.drug_names) >= 2:
+            results = self._indexer.search_multi_entity(
+                intent.drug_names, top_k=top_k
+            )
+        else:
+            results = self._indexer.search(question, top_k=top_k, intent=intent)
 
         if not results:
             return MedicalContextResult(
@@ -617,6 +1056,7 @@ class MedicalRetriever:
             context=context,
             chapters=filtered,
             confidence_labels=[c["confidence_label"] for c in filtered],
+            intent=intent.primary,
         )
 
     @staticmethod

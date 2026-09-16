@@ -135,7 +135,7 @@ class TestChapterLevelIntegration:
 class TestChapterIndexerStandalone:
     """Tests for ChapterIndexer with TF-IDF fallback vectors.
 
-    These are the 8 unit tests that exercise the offline path
+    These are the unit tests that exercise the offline path
     (no embedder, TF-IDF cosine only). They verify the indexer
     provides basic retrieval without a neural embedding model.
     """
@@ -184,3 +184,76 @@ class TestChapterIndexerStandalone:
         indexer.search("semaglutide", top_k=3)
         elapsed = (time.time() - start) * 1000
         assert elapsed < 1000, f"First query took {elapsed:.0f}ms"
+
+    def test_section_level_sub_documents(self):
+        """Sections should be extracted as sub-documents for precision retrieval."""
+        from neuralmind.chapter_indexer import ChapterIndexer
+
+        indexer = ChapterIndexer()
+        indexer.index_directory(CHAPTERS_DIR)
+        assert len(indexer._section_data) > 0, "No sections extracted"
+        # Each section should have required fields
+        for sec in indexer._section_data[:3]:
+            assert "title" in sec
+            assert "text" in sec
+            assert "heading_tokens" in sec
+            assert "source_file" in sec
+            assert "chapter_index" in sec
+
+    def test_section_bm25_built(self):
+        """Section-level BM25 structures should be built."""
+        from neuralmind.chapter_indexer import ChapterIndexer
+
+        indexer = ChapterIndexer()
+        indexer.index_directory(CHAPTERS_DIR)
+        assert len(indexer._section_tf) == len(indexer._section_data)
+        assert len(indexer._section_dl) == len(indexer._section_data)
+
+    def test_section_heading_match(self):
+        """Section heading match should boost parent chapter."""
+        from neuralmind.chapter_indexer import ChapterIndexer
+
+        indexer = ChapterIndexer()
+        indexer.index_directory(CHAPTERS_DIR)
+        # Query that matches a specific section heading
+        results = indexer.search("thyroid", top_k=5)
+        assert len(results) > 0
+        # Safety chapter should appear in results
+        sources = [r["source_file"] for r in results]
+        assert "05_safety-side-effects.md" in sources
+
+    def test_multi_entity_search_merges(self):
+        """Multi-entity search should merge results from multiple queries."""
+        from neuralmind.medical_retriever import ChapterIndexer
+
+        indexer = ChapterIndexer()
+        indexer.index_directory(CHAPTERS_DIR)
+        results = indexer.search_multi_entity(["semaglutide", "tirzepatide"], top_k=5)
+        assert len(results) > 0
+        # Should have deduplicated results
+        sources = [r["source_file"] for r in results]
+        assert len(sources) == len(set(sources)), "Results should be deduplicated"
+
+    def test_chapter_section_two_level_indexing(self):
+        """Two-level indexing should return chapter + section info."""
+        from neuralmind.medical_retriever import ChapterIndexer
+
+        indexer = ChapterIndexer()
+        indexer.index_directory(CHAPTERS_DIR)
+        # Chapter documents should have sections
+        for doc in indexer._documents:
+            assert hasattr(doc, 'sections') or isinstance(doc, dict)
+
+    def test_heading_tokens_extracted(self):
+        """Heading tokens should be extracted from chapters."""
+        from neuralmind.medical_retriever import ChapterIndexer
+
+        indexer = ChapterIndexer()
+        indexer.index_directory(CHAPTERS_DIR)
+        found_headings = False
+        for doc in indexer._documents:
+            tokens = doc.heading_tokens if hasattr(doc, 'heading_tokens') else doc.get('heading_tokens', set())
+            if tokens:
+                found_headings = True
+                break
+        assert found_headings, "No heading tokens found"

@@ -53,6 +53,12 @@ tests/benchmark/results.json
 tests/benchmark/report.md
 tests/benchmark/multi_model.json
 tests/benchmark/multi_model.md
+# Peptide book benchmark outputs (contain book-specific data, regenerated on demand)
+tests/benchmark/peptide_results.json
+tests/benchmark/peptide_report.md
+tests/benchmark/peptide_queries.json
+# Book retrieval eval corpus (synthetic placeholders — real book content must never be committed)
+evals/book_retrieval/corpus/
 tests/fixtures/sample_project/graphify-out/
 # Not root-anchored: a nested graphify-out/ (e.g. docs/releases/graphify-out/
 # store.sqlite, committed by accident in 71dca4f) should never be trackable

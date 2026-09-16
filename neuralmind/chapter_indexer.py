@@ -1,13 +1,14 @@
 """Chapter-level indexer for prose/book retrieval.
 
 Treats each markdown chapter as a single searchable document
-instead of splitting into heading-level nodes.
+with H2 sections as sub-documents for precision retrieval.
 
 Indexing strategy:
 - One BM25 document per chapter (full text as value).
 - H1 used as chapter title; H2/H3 grouped as section
   headings and indexed for title matching.
 - TF-IDF fallback vectors when no embedder is supplied.
+- Section-level sub-documents for two-level retrieval.
 - Search combines BM25, title, and vector scores with
   Claims Register down-weighting so medical reference
   tables cannot outrank clinical content chapters.
@@ -21,7 +22,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-# Prose-friendly tokenizer (same as bm25.py)
+# Prose-friendly tokenizer (same as medical_retriever.py)
 _PROSE_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 
 
@@ -31,7 +32,7 @@ def _tokenize_prose(text: str) -> list[str]:
 
 
 class ChapterIndexer:
-    """Index markdown chapters as single documents for retrieval."""
+    """Index markdown chapters as single documents with section-level sub-documents."""
 
     def __init__(self, embedder: Any = None) -> None:
         self._ids: list[str] = []
@@ -47,6 +48,14 @@ class ChapterIndexer:
         self._embeddings: list[list[float]] = []
         self._chapter_names: dict[str, str] = {}
         self._heading_tokens: list[set[str]] = []
+        # Section-level structures
+        self._section_data: list[dict[str, Any]] = []
+        self._section_tf: list[dict[str, int]] = []
+        self._section_dl: list[int] = []
+        self._section_df: dict[str, int] = {}
+        self._section_idf: dict[str, float] = {}
+        self._section_avgdl: float = 0.0
+        self._section_embeddings: list[list[float]] = []
 
     # ------------------------------------------------------------------
     # Indexing
@@ -94,6 +103,9 @@ class ChapterIndexer:
         # Build IDF first (needed for both ONNX and TF-IDF fallback)
         self._build()
 
+        # Build section-level index
+        self._build_section_index()
+
         if self._embedder is not None:
             try:
                 self._embeddings = self._embedder.embed(self._texts)
@@ -101,10 +113,17 @@ class ChapterIndexer:
                 self._embeddings = []
         if not self._embeddings and self._n > 0:
             # TF-IDF fallback vectors when ONNX is unavailable or failed
-            self._embeddings = []
             vocab = sorted(self._idf.keys())
             for tf_map in self._tf:
                 self._embeddings.append([tf_map.get(t, 0) * self._idf[t] for t in vocab])
+
+        # Build section embeddings
+        if self._section_data:
+            section_texts = [s["text"] for s in self._section_data]
+            try:
+                self._section_embeddings = self._embedder.embed(section_texts)
+            except Exception:
+                self._section_embeddings = []
 
         return chapters
 
@@ -136,12 +155,86 @@ class ChapterIndexer:
             term: math.log((self._n - df + 0.5) / (df + 0.5) + 1) for term, df in self._df.items()
         }
 
+    def _build_section_index(self) -> None:
+        """Build section-level sub-document index for precision retrieval."""
+        self._section_data = []
+        for idx, (text, source_file, chapter_name) in enumerate(zip(self._texts, self._ids, [self._metadatas[i]["chapter_name"] for i in range(self._n)])):
+            sections = self._extract_sections(text, source_file, chapter_name, idx)
+            self._section_data.extend(sections)
+
+        # Build section BM25
+        for sec in self._section_data:
+            tokens = _tokenize_prose(sec["text"])
+            tf: dict[str, int] = {}
+            for t in tokens:
+                tf[t] = tf.get(t, 0) + 1
+            self._section_tf.append(tf)
+            self._section_dl.append(len(tokens))
+
+        if not self._section_data:
+            return
+
+        self._section_avgdl = sum(self._section_dl) / len(self._section_data)
+        self._section_df = {}
+        for tf_map in self._section_tf:
+            for term in tf_map:
+                self._section_df[term] = self._section_df.get(term, 0) + 1
+        self._section_idf = {
+            term: math.log((len(self._section_data) - df + 0.5) / (df + 0.5) + 1)
+            for term, df in self._section_df.items()
+        }
+
+    def _extract_sections(self, text: str, source_file: str, chapter_name: str, chapter_idx: int) -> list[dict[str, Any]]:
+        """Extract H2 sections as sub-documents for two-level indexing."""
+        sections: list[dict[str, Any]] = []
+        current_section: dict[str, Any] | None = None
+        in_fence = False
+
+        for line in text.split("\n"):
+            stripped = line.strip()
+            if stripped.startswith(("```", "~~~")):
+                in_fence = not in_fence
+                if current_section is not None:
+                    current_section["text"] += line + "\n"
+                continue
+            if in_fence:
+                if current_section is not None:
+                    current_section["text"] += line + "\n"
+                continue
+
+            h2_match = re.match(r"^##\s+(.+)", stripped)
+            h3_match = re.match(r"^###\s+(.+)", stripped)
+
+            if h2_match:
+                # Save previous section
+                if current_section is not None:
+                    sections.append(current_section)
+                current_section = {
+                    "title": h2_match.group(1).strip(),
+                    "text": "",
+                    "heading_tokens": set(_tokenize_prose(h2_match.group(1))),
+                    "source_file": source_file,
+                    "chapter_name": chapter_name,
+                    "chapter_index": chapter_idx,
+                }
+            elif h3_match and current_section is not None:
+                current_section["heading_tokens"].update(_tokenize_prose(h3_match.group(1)))
+                current_section["text"] += line + "\n"
+            else:
+                if current_section is not None:
+                    current_section["text"] += line + "\n"
+
+        if current_section is not None:
+            sections.append(current_section)
+
+        return sections
+
     # ------------------------------------------------------------------
     # Search
     # ------------------------------------------------------------------
 
     def search(self, query: str, top_k: int = 10) -> list[dict[str, Any]]:
-        """Hybrid chapter search: BM25 + vector + heading-title match.
+        """Hybrid chapter search: BM25 + vector + heading-title match + section boost.
 
         Weights tuned for small indexes (N ≈ 10-20) where BM25
         score clustering is severe and heading matches carry
@@ -178,8 +271,7 @@ class ChapterIndexer:
             try:
                 q_vec = self._embedder.embed([query])[0]
                 for i, doc_vec in enumerate(self._embeddings):
-                    # zip w/ strict=False: ONNX (384) and TF-IDF (V) dims differ
-                    dot = sum(a * bb for a, bb in zip(q_vec, doc_vec))  # noqa: B905
+                    dot = sum(a * bb for a, bb in zip(q_vec, doc_vec))
                     nq = math.sqrt(sum(a * a for a in q_vec))
                     nd = math.sqrt(sum(bb * bb for bb in doc_vec))
                     if nq > 0 and nd > 0:
@@ -196,7 +288,7 @@ class ChapterIndexer:
             nq = math.sqrt(sum(a * a for a in q_vec))
             if nq > 0:
                 for i, doc_vec in enumerate(self._embeddings):
-                    dot = sum(a * bb for a, bb in zip(q_vec, doc_vec))  # noqa: B905
+                    dot = sum(a * bb for a, bb in zip(q_vec, doc_vec))
                     nd = math.sqrt(sum(bb * bb for bb in doc_vec))
                     if nd > 0:
                         vec_scores[i] = dot / (nq * nd)
@@ -210,6 +302,16 @@ class ChapterIndexer:
             overlap = q_set & headings
             if overlap:
                 title_scores[i] = min(1.0, len(overlap) / max(1, len(q_set)))
+
+        # --- Section-level boost ---
+        section_boost: dict[int, float] = {}
+        if self._section_data:
+            for sec in self._section_data:
+                sec_overlap = q_set & sec.get("heading_tokens", set())
+                if sec_overlap:
+                    parent = sec["chapter_index"]
+                    score = min(1.0, len(sec_overlap) / max(1, len(q_set)))
+                    section_boost[parent] = max(section_boost.get(parent, 0.0), score)
 
         # --- Combine ---
         # Weights favor heading match and vector over raw BM25 on
@@ -226,8 +328,9 @@ class ChapterIndexer:
             bm25 = bm25_scores.get(i, 0.0)
             vec = vec_scores.get(i, 0.0)
             title = title_scores.get(i, 0.0)
+            sec_boost = section_boost.get(i, 0.0)
 
-            score = 0.35 * bm25 + 0.25 * vec + 0.40 * title
+            score = 0.30 * bm25 + 0.30 * vec + 0.25 * title + 0.15 * sec_boost
             if "claims-register" in self._ids[i]:
                 score *= claims_penalty
 

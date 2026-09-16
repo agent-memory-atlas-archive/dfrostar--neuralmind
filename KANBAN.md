@@ -1,10 +1,10 @@
 # NeuralMind — Kanban Board (CANONICAL — `dfrostar/neuralmind`)
 
-**2026-09-15 20:41:00**
+**2026-09-16 09:00:00**
 **Repo:** `neuralmind` (dfrostar/neuralmind)
 **Version:** 3.13.0
 **Branch:** main
-**Last commit:** `d6428dc` — feat: v3.13.0 — wire MedicalRetriever into NeuralMind.query() for prose projects
+**Last commit:** `2d98b9a` — chore: bump version to 3.13.0
 
 ---
 
@@ -98,4 +98,11 @@ NeuralMind.query()
 
 ---
 
-*Last updated: 2026-09-15 20:41 by Hermes Agent*
+## 📊 Repo State (2026-09-16)
+
+| Field | Value |
+|-------|-------|
+| Branch | main |
+| Last commit | `2d98b9a` — chore: bump version to 3.13.0 (2026-09-15) |
+| Uncommitted | 14 files (chapter_indexer, medical_retriever, terminology, context_selector, README, site/claims.json, benchmark docs/tests, new modules: cognition_loop, context_budget, graph_traversal, read_dedup, session_summaries, integration docs) |
+| Stale days | 0 days (last commit 2026-09-15) |
