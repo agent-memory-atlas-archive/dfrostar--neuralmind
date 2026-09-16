@@ -1,10 +1,10 @@
 # NeuralMind — Kanban Board (CANONICAL — `dfrostar/neuralmind`)
 
-**2026-09-16 09:00:00**
+**2026-09-16 16:00:00**
 **Repo:** `neuralmind` (dfrostar/neuralmind)
 **Version:** 3.13.0
 **Branch:** main
-**Last commit:** `2d98b9a` — chore: bump version to 3.13.0
+**Last commit:** `edab170` — fix: resolve remaining CI lint failures and Windows checkout error (2026-09-16)
 
 ---
 
@@ -103,6 +103,6 @@ NeuralMind.query()
 | Field | Value |
 |-------|-------|
 | Branch | main |
-| Last commit | `2d98b9a` — chore: bump version to 3.13.0 (2026-09-15) |
-| Uncommitted | 14 files (chapter_indexer, medical_retriever, terminology, context_selector, README, site/claims.json, benchmark docs/tests, new modules: cognition_loop, context_budget, graph_traversal, read_dedup, session_summaries, integration docs) |
-| Stale days | 0 days (last commit 2026-09-15) |
+| Last commit | `edab170` — fix: resolve remaining CI lint failures and Windows checkout error (2026-09-16) |
+| Uncommitted | 0 files (clean working tree) |
+| Stale days | 0 days (last commit today) |

@@ -1,10 +1,4 @@
 {
-  "pkg/__init__.py": [
-    "pkg/b.py"
-  ],
-  "pkg/b.py": [
-    "pkg/a.py"
-  ],
   "pkg/c.py": [
     "pkg/d.py"
   ]

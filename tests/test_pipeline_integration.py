@@ -18,16 +18,70 @@ generation is ~60s in this environment).
 """
 
 import sys
+from pathlib import Path
 
-sys.path.insert(0, "/home/dtfrost/neuralmind")
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT))
+
+import pytest  # noqa: E402
+
+from neuralmind import core  # noqa: E402
+from neuralmind.context_selector import TokenBudget  # noqa: E402
+
+BOOK_DIR = str(REPO_ROOT / "tests" / "fixtures" / "sample_project_dynamic_py")
+
+# Synthetic chapters for the prose fixture — written at import time so the
+# fixture is self-contained and never depends on committed book content.
+_CHAPTERS_DIR = Path(BOOK_DIR) / "chapters"
+_CHAPTERS = {
+    "chapter_01.md": (
+        "# Chapter 1: What is a peptide?\n\n"
+        "## Definition\n\nA peptide is a short chain of amino acids.\n\n"
+        "## Examples\n\nInsulin and oxytocin are peptide hormones.\n"
+    ),
+    "chapter_02.md": (
+        "# Chapter 2: Semaglutide\n\n"
+        "## Mechanism\n\nSemaglutide is a peptide drug and a GLP-1 receptor agonist.\n\n"
+        "## Usage\n\nUsed for diabetes and weight management.\n"
+    ),
+    "chapter_03.md": (
+        "# Chapter 3: Retatrutide and Tirzepatide\n\n"
+        "## Overview\n\nSemaglutide is a GLP-1 agonist. Tirzepatide is a GIP/GLP-1 dual agonist.\n\n"
+        "## FDA Approval\n\nThe FDA approval process involves preclinical testing, "
+        "clinical trials (Phase I, II, III), and review of safety and efficacy data. "
+        "Phase 3 trials reported 14.9% weight loss at 68 weeks.\n"
+    ),
+    "chapter_04.md": (
+        "# Chapter 4: BPC-157\n\n"
+        "## Research\n\nBPC-157 is a peptide studied for wound healing.\n\n"
+        "## Risks\n\nThere are risks associated with buying peptides from research "
+        "chemical websites, including lack of quality control, potential contamination, "
+        "and inaccurate labeling.\n"
+    ),
+    "chapter_05.md": (
+        "# Chapter 5: Safety Warning\n\n"
+        "## Warning\n\nSemaglutide has a black box warning for thyroid C-cell tumors "
+        "based on rodent studies.\n"
+    ),
+    "chapter_06.md": "# Chapter 6: Future Research\n\n## Overview\n\nMore studies are needed.\n",
+    "chapter_07.md": "# Chapter 7: Oral Peptides\n\n## Overview\n\nOral options are under investigation.\n",
+    "chapter_08.md": (
+        "# Chapter 8: Questions to Ask Your Prescriber\n\n"
+        "## Questions\n\nAsk your doctor about benefits, risks, side effects, and monitoring.\n"
+    ),
+}
 
 
-import pytest
+def _write_synthetic_chapters() -> None:
+    """Ensure the prose fixture has chapter files (idempotent)."""
+    _CHAPTERS_DIR.mkdir(parents=True, exist_ok=True)
+    for name, content in _CHAPTERS.items():
+        target = _CHAPTERS_DIR / name
+        if not target.exists():
+            target.write_text(content, encoding="utf-8")
 
-from neuralmind import core
-from neuralmind.context_selector import TokenBudget
 
-BOOK_DIR = "/home/dtfrost/neuralmind/tests/fixtures/sample_project_dynamic_py"
+_write_synthetic_chapters()
 
 
 @pytest.fixture
