@@ -33,7 +33,7 @@ const steps = [
     {
         step: '2',
         title: 'Build your index',
-        body: 'One command indexes your codebase. Tree-sitter parses the structure, TurboVec compresses embeddings 4-bit. No code leaves your machine.',
+        body: 'One command indexes your codebase. Tree-sitter parses the structure, TurboVec compresses embeddings 4-bit. Processing runs on your machine.',
         code: ['neuralmind build .'],
     },
     {
