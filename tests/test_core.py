@@ -493,13 +493,14 @@ class TestNeuralMindExportContext:
     def test_export_default_path(self, temp_project, mock_chromadb):
         """export_context uses default path when none specified."""
         from neuralmind import NeuralMind
+        import os
 
         mind = NeuralMind(str(temp_project))
         mind.build()
 
         result = mind.export_context()
         expected_path = str(Path(temp_project) / "neuralmind_context.md")
-        assert result == expected_path
+        assert os.path.realpath(result) == os.path.realpath(expected_path)
         assert Path(result).exists()
 
     def test_export_includes_metadata(self, temp_project, tmp_path, mock_chromadb):
