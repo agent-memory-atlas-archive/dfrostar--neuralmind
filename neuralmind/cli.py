@@ -2692,6 +2692,180 @@ def cmd_memory(args):
         return
 
 
+# ── Decision Memory Commands (v4.0.0 Memory Layer) ──────────────────────
+
+
+def _resolve_decisions_db(project_path: Path) -> Path:
+    """Return the path to the decisions SQLite DB for a project."""
+    return Path(project_path) / ".neuralmind" / "decisions.db"
+
+
+def _get_decisions_store(project_path: str | Path):
+    """Import and return a DecisionStore for the given project."""
+    from neuralmind.memory.store import DecisionStore
+
+    return DecisionStore(str(project_path))
+
+
+def cmd_decisions_record(args):
+    """Store an architecture decision with commit linkage."""
+    store = _get_decisions_store(args.project_path)
+    commit = args.commit
+    if not commit:
+        try:
+            import subprocess
+            commit = subprocess.check_output(
+                ["git", "rev-parse", "HEAD"],
+                cwd=args.project_path,
+                text=True,
+            ).strip()
+        except Exception as e:
+            print(f"Error resolving commit: {e}")
+            sys.exit(1)
+
+    decision = store.record(
+        title=args.title,
+        rationale=args.rationale,
+        commit_sha=commit or "unknown",
+        files_affected=args.files or [],
+        decision_type=args.type,
+        rejected_alternatives=args.rejected or [],
+        evidence=args.evidence or [],
+        confidence=args.confidence,
+        tags=args.tags or [],
+    )
+    print(f"Recorded decision {decision.id}")
+    print(f"  Title: {decision.title}")
+    print(f"  Commit: {decision.commit_sha}")
+    print(f"  Status: {decision.status}")
+
+
+def cmd_decisions_query(args):
+    """Search decisions by natural language."""
+    store = _get_decisions_store(args.project_path)
+    status = None if args.status == "ALL" else args.status
+    results = store.query(
+        text=args.query,
+        limit=args.limit,
+        status=status,
+    )
+    if args.json:
+        import json
+
+        print(json.dumps([r.model_dump() for r in results], indent=2, default=str))
+        return
+
+    if not results:
+        print(f"No decisions found for: {args.query}")
+        return
+
+    print(f'# NeuralMind Decisions Query: "{args.query}"')
+    print()
+    for i, d in enumerate(results, 1):
+        print(f"{i}. [{d.status}] {d.title}")
+        print(f"   Commit: {d.commit_sha}")
+        if d.files:
+            print(f"   Files: {', '.join(d.files)}")
+        print(f"   {d.rationale[:100]}{'...' if len(d.rationale) > 100 else ''}")
+        print()
+
+
+def cmd_decisions_amend(args):
+    """Add to an existing decision."""
+    store = _get_decisions_store(args.project_path)
+    decision = store.get(args.decision_id)
+    if not decision:
+        print(f"Decision not found: {args.decision_id}")
+        sys.exit(1)
+
+    if args.rationale:
+        decision.rationale = args.rationale
+    if args.rejected:
+        decision.rejected_alternatives.extend(args.rejected)
+    if args.evidence:
+        decision.evidence.extend(args.evidence)
+
+    store.update(decision)
+    print(f"Amended decision: {decision.id}")
+
+
+def cmd_decisions_audit(args):
+    """List all decisions."""
+    store = _get_decisions_store(args.project_path)
+    decisions = store.audit(stale_only=args.stale, orphaned_only=args.orphaned)
+
+    if args.format == "json":
+        import json
+
+        print(json.dumps([d.model_dump() for d in decisions], indent=2, default=str))
+        return
+
+    if not decisions:
+        print("No decisions recorded yet.")
+        return
+
+    print(f"# Decision Audit ({len(decisions)} entries)")
+    print()
+    for d in decisions:
+        status_icon = {"ACTIVE": "🟢", "STALE": "🔴", "INVALIDATED": "⚫"}.get(d.status, "?")
+        print(f"{status_icon} [{d.status}] {d.title}")
+        print(f"   ID: {d.id}")
+        print(f"   Commit: {d.commit_sha}")
+        if d.files:
+            print(f"   Files: {', '.join(d.files)}")
+        print(f"   {d.rationale[:80]}{'...' if len(d.rationale) > 80 else ''}")
+        print()
+
+
+def cmd_decisions_export(args):
+    """Dump all decisions to file."""
+    store = _get_decisions_store(args.project_path)
+    path = store.export(format=args.format, output=args.output)
+    print(f"Exported to: {path}")
+
+
+def cmd_decisions_restore(args):
+    """Re-validate a stale entry."""
+    store = _get_decisions_store(args.project_path)
+    commit = args.commit
+    if not commit:
+        try:
+            import subprocess
+            commit = subprocess.check_output(
+                ["git", "rev-parse", "HEAD"],
+                cwd=args.project_path,
+                text=True,
+            ).strip()
+        except Exception as e:
+            print(f"Error resolving commit: {e}")
+            sys.exit(1)
+    decision = store.restore(args.decision_id, new_commit_sha=commit)
+    print(f"Restored decision: {decision.id}")
+    print(f"  Status: {decision.status}")
+    print(f"  Commit: {decision.commit_sha}")
+
+
+def cmd_decisions_invalidate(args):
+    """Mark a decision as stale."""
+    store = _get_decisions_store(args.project_path)
+    store.invalidate(args.decision_id, reason=args.reason)
+    print(f"Invalidated decision: {args.decision_id}")
+
+
+def cmd_decisions_eval(args):
+    """Run the maintenance replay benchmark."""
+    from neuralmind.memory.eval import MaintenanceEval
+
+    eval_harness = MaintenanceEval(args.project_path, task_count=args.tasks)
+    report = eval_harness.run(output_format=args.format)
+
+    if args.output:
+        Path(args.output).write_text(report)
+        print(f"Report written to: {args.output}")
+    else:
+        print(report)
+
+
 def _has_project_marker(path: Path) -> bool:
     """True when ``path`` is a NeuralMind project root or a git repo root."""
     return (
@@ -5989,6 +6163,74 @@ def main():
     mem_review_reject.add_argument("project_path", nargs="?", default=".")
     mem_review_reject.add_argument("--json", "-j", action="store_true")
     mem_review_reject.set_defaults(func=cmd_memory)
+
+    # decisions command group — commit-linked decision memory
+    decisions_p = subparsers.add_parser(
+        "decisions",
+        help="Persistent decision memory with commit-level invalidation",
+    )
+    decisions_sub = decisions_p.add_subparsers(dest="decisions_cmd", required=True)
+
+    d_record = decisions_sub.add_parser("record", help="Store an architecture decision")
+    d_record.add_argument("--title", required=True, help="Decision title")
+    d_record.add_argument("--rationale", required=True, help="Why this decision was made")
+    d_record.add_argument("--commit", help="Git commit SHA (defaults to HEAD)")
+    d_record.add_argument("--files", nargs="*", help="Files affected by this decision")
+    d_record.add_argument("--type", default="ARCHITECTURE", help="Decision type")
+    d_record.add_argument("--rejected", nargs="*", help="Rejected alternatives")
+    d_record.add_argument("--evidence", nargs="*", help="Supporting evidence")
+    d_record.add_argument("--confidence", type=float, default=1.0, help="Confidence 0-1")
+    d_record.add_argument("--tags", nargs="*", help="Tags for categorization")
+    d_record.add_argument("project_path", nargs="?", default=".")
+    d_record.set_defaults(func=cmd_decisions_record)
+
+    d_query = decisions_sub.add_parser("query", help="Search decisions by natural language")
+    d_query.add_argument("query", help="Search query")
+    d_query.add_argument("--limit", "-n", type=int, default=5)
+    d_query.add_argument("--status", default="ACTIVE", help="ACTIVE/STALE/ALL")
+    d_query.add_argument("--json", "-j", action="store_true")
+    d_query.add_argument("project_path", nargs="?", default=".")
+    d_query.set_defaults(func=cmd_decisions_query)
+
+    d_amend = decisions_sub.add_parser("amend", help="Add to existing decision")
+    d_amend.add_argument("decision_id", help="Decision ID to amend")
+    d_amend.add_argument("--rationale", help="Updated rationale")
+    d_amend.add_argument("--rejected", nargs="*", help="Add rejected alternatives")
+    d_amend.add_argument("--evidence", nargs="*", help="Add evidence")
+    d_amend.add_argument("project_path", nargs="?", default=".")
+    d_amend.set_defaults(func=cmd_decisions_amend)
+
+    d_audit = decisions_sub.add_parser("audit", help="List all decisions")
+    d_audit.add_argument("--stale", action="store_true", help="Only stale entries")
+    d_audit.add_argument("--orphaned", action="store_true", help="Only orphaned")
+    d_audit.add_argument("--format", choices=["md", "json"], default="md")
+    d_audit.add_argument("project_path", nargs="?", default=".")
+    d_audit.set_defaults(func=cmd_decisions_audit)
+
+    d_export = decisions_sub.add_parser("export", help="Dump all decisions to file")
+    d_export.add_argument("--format", choices=["md", "json"], default="md")
+    d_export.add_argument("--output", "-o", help="Output file path")
+    d_export.add_argument("project_path", nargs="?", default=".")
+    d_export.set_defaults(func=cmd_decisions_export)
+
+    d_restore = decisions_sub.add_parser("restore", help="Re-validate a stale entry")
+    d_restore.add_argument("decision_id", help="Decision ID to restore")
+    d_restore.add_argument("--commit", help="New commit SHA")
+    d_restore.add_argument("project_path", nargs="?", default=".")
+    d_restore.set_defaults(func=cmd_decisions_restore)
+
+    d_invalidate = decisions_sub.add_parser("invalidate", help="Mark decision as stale")
+    d_invalidate.add_argument("decision_id", help="Decision ID to invalidate")
+    d_invalidate.add_argument("--reason", default="", help="Reason for invalidation")
+    d_invalidate.add_argument("project_path", nargs="?", default=".")
+    d_invalidate.set_defaults(func=cmd_decisions_invalidate)
+
+    d_eval = decisions_sub.add_parser("eval", help="Run maintenance replay benchmark")
+    d_eval.add_argument("--tasks", type=int, default=10, help="Number of tasks")
+    d_eval.add_argument("--format", choices=["json", "md"], default="json")
+    d_eval.add_argument("--output", "-o", help="Output file")
+    d_eval.add_argument("project_path", nargs="?", default=".")
+    d_eval.set_defaults(func=cmd_decisions_eval)
 
     # synapse command group — prune + detailed stats
     synapse_p = subparsers.add_parser(
