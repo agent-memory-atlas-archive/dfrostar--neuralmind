@@ -572,13 +572,23 @@ class DecisionStore:
     # Invalidation Engine support
     # ------------------------------------------------------------------ #
 
-    def find_by_files(self, files: list[str]) -> list[DecisionRecord]:
+    def find_by_files(
+        self, files: list[str], include_invalidated: bool = False
+    ) -> list[DecisionRecord]:
         """Return decisions whose files_affected overlap the given paths.
 
         Used by the InvalidationEngine to find decisions that may be
         stale after a file change. The files_affected column is stored
         as a JSON array, so we use json_each for efficient overlap
         detection.
+
+        Args:
+            files: List of file paths to check.
+            include_invalidated: If True, include INVALIDATED decisions
+                in the result. The invalidation engine sets this to False
+                (already-handled decisions are irrelevant), but the
+                stale-guard sets it True so it can surface all non-ACTIVE
+                decisions before an edit.
         """
         if not files:
             return []
@@ -588,6 +598,7 @@ class DecisionStore:
                 # Use json_each to expand files_affected and match
                 # against the changed files list.
                 placeholders = ", ".join(["?"] * len(files))
+                invalidated_clause = "" if include_invalidated else "AND d.status != 'INVALIDATED'"
                 cur = conn.execute(
                     f"""SELECT DISTINCT d.id, d.title, d.rationale, d.commit_sha, d.files_affected,
                               d.decision_type, d.confidence, d.status, d.author,
@@ -595,7 +606,7 @@ class DecisionStore:
                               d.rejected_alternatives, d.dependency_constraints, d.tags
                        FROM decisions d, json_each(d.files_affected) je
                        WHERE je.value IN ({placeholders})
-                       AND d.status != 'INVALIDATED'
+                       {invalidated_clause}
                        ORDER BY d.created_at DESC""",
                     files,
                 )

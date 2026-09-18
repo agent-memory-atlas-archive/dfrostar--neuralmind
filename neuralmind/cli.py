@@ -6806,6 +6806,7 @@ def main():
             "session-start",
             "prompt-submit",
             "pre-compact",
+            "stale-guard",
         ],
     )
     hook_p.set_defaults(func=cmd_hook)
