@@ -138,23 +138,23 @@ _TASK_SEED_DECISIONS: dict[str, list[dict[str, Any]]] = {
         },
         {
             "id": "dec-bugfix-auth-002",
-            "title": "Validate JWT tokens with RS256 only",
+            "title": "Validate JWT tokens in authentication flow",
             "rationale": (
-                "HS256 is vulnerable to key confusion attacks. RS256 separates "
-                "signing and verification keys."
+                "RS256 is required for authentication to prevent key confusion "
+                "attacks. HS256 is vulnerable."
             ),
             "decision_type": "CONFIG",
             "status": "ACTIVE",
             "files_affected": ["neuralmind/auth.py"],
             "confidence": 0.9,
-            "tags": ["security", "jwt"],
+            "tags": ["security", "jwt", "authentication"],
         },
         {
             # STALE: this decision was superseded by dec-bugfix-auth-001
             "id": "dec-bugfix-auth-stale-001",
-            "title": "Inline auth checks in each handler (DEPRECATED)",
+            "title": "Inline authentication checks in each handler (DEPRECATED)",
             "rationale": (
-                "Originally each handler did its own auth check. This was "
+                "Originally each handler did its own authentication check. This was "
                 "replaced by per-handler middleware after the auth bypass CVE."
             ),
             "decision_type": "ARCHITECTURE",
@@ -181,24 +181,24 @@ _TASK_SEED_DECISIONS: dict[str, list[dict[str, Any]]] = {
         },
         {
             "id": "dec-refactor-db-002",
-            "title": "Extract query builder from raw SQL strings",
+            "title": "Extract query builder from connection pool module",
             "rationale": (
-                "Raw SQL strings are error-prone and hard to test. A query builder "
+                "Raw SQL strings in the connection pool are error-prone. A query builder "
                 "provides composability and type safety."
             ),
             "decision_type": "REFACTOR",
             "status": "ACTIVE",
             "files_affected": ["neuralmind/db/query.py"],
             "confidence": 0.88,
-            "tags": ["database", "refactoring", "sql"],
+            "tags": ["database", "refactoring", "sql", "pool"],
         },
         {
             # STALE: pooling approach changed
             "id": "dec-refactor-db-stale-001",
             "title": "Use thread-local connections without pooling (DEPRECATED)",
             "rationale": (
-                "Originally used thread-local connections. This caused contention "
-                "under load and was replaced by proper pooling."
+                "Originally used thread-local connections instead of pooling. This caused "
+                "contention under load and was replaced by proper connection pooling."
             ),
             "decision_type": "ARCHITECTURE",
             "status": "STALE",
@@ -223,7 +223,7 @@ _TASK_SEED_DECISIONS: dict[str, list[dict[str, Any]]] = {
         },
         {
             "id": "dec-dep-sqlite-002",
-            "title": "Use json_each for files_affected overlap queries",
+            "title": "Use json_each for SQLite overlap queries",
             "rationale": (
                 "SQLite's json_each table-valued function allows efficient "
                 "overlap detection between files_affected JSON arrays and "
@@ -240,7 +240,7 @@ _TASK_SEED_DECISIONS: dict[str, list[dict[str, Any]]] = {
             "id": "dec-dep-sqlite-stale-001",
             "title": "Pin SQLite to 3.28 for legacy compatibility (DEPRECATED)",
             "rationale": (
-                "Originally pinned to 3.28 for an old deployment target. "
+                "Originally pinned SQLite to 3.28 for an old deployment target. "
                 "This was upgraded to 3.35+ for WAL mode."
             ),
             "decision_type": "DEPENDENCY",
@@ -266,7 +266,7 @@ _TASK_SEED_DECISIONS: dict[str, list[dict[str, Any]]] = {
         },
         {
             "id": "dec-config-logging-002",
-            "title": "Set log level to INFO in production, DEBUG in dev",
+            "title": "Set log level to INFO in production",
             "rationale": (
                 "INFO in production keeps log volume manageable. DEBUG in dev "
                 "aids development."
@@ -282,7 +282,7 @@ _TASK_SEED_DECISIONS: dict[str, list[dict[str, Any]]] = {
             "id": "dec-config-logging-stale-001",
             "title": "Use plain text logging with print statements (DEPRECATED)",
             "rationale": (
-                "Originally used print-based logging. Replaced by structured "
+                "Originally used print-based plain text logging. Replaced by structured "
                 "JSON logging for production observability."
             ),
             "decision_type": "CONFIG",
@@ -297,41 +297,41 @@ _TASK_SEED_DECISIONS: dict[str, list[dict[str, Any]]] = {
             "id": "dec-test-store-001",
             "title": "Use pytest fixtures for DecisionStore test isolation",
             "rationale": (
-                "Each test gets a fresh in-memory SQLite database. Fixtures "
+                "Each DecisionStore test gets a fresh in-memory SQLite database. Fixtures "
                 "ensure no cross-test contamination."
             ),
             "decision_type": "TEST",
             "status": "ACTIVE",
             "files_affected": ["tests/test_store.py", "tests/conftest.py"],
             "confidence": 0.91,
-            "tags": ["testing", "pytest", "fixtures"],
+            "tags": ["testing", "pytest", "fixtures", "DecisionStore"],
         },
         {
             "id": "dec-test-store-002",
-            "title": "Test FTS5 fallback path with LIKE queries",
+            "title": "Test FTS5 fallback path with DecisionStore",
             "rationale": (
-                "Not all SQLite builds have FTS5. The LIKE fallback must be "
+                "Not all SQLite builds have FTS5. The DecisionStore LIKE fallback must be "
                 "tested to ensure graceful degradation."
             ),
             "decision_type": "TEST",
             "status": "ACTIVE",
             "files_affected": ["tests/test_store.py"],
             "confidence": 0.85,
-            "tags": ["testing", "fts5", "fallback"],
+            "tags": ["testing", "fts5", "fallback", "DecisionStore"],
         },
         {
             # STALE: old testing approach
             "id": "dec-test-store-stale-001",
-            "title": "Use unittest.TestCase for store tests (DEPRECATED)",
+            "title": "Use unittest.TestCase for DecisionStore tests (DEPRECATED)",
             "rationale": (
-                "Originally used unittest.TestCase. Migrated to pytest fixtures "
-                "for better isolation and parametrize support."
+                "Originally used unittest.TestCase for DecisionStore tests. Migrated to "
+                "pytest fixtures for better isolation and parametrize support."
             ),
             "decision_type": "TEST",
             "status": "STALE",
             "files_affected": ["tests/test_store.py"],
             "confidence": 0.2,
-            "tags": ["testing", "unittest", "deprecated"],
+            "tags": ["testing", "unittest", "deprecated", "DecisionStore"],
         },
     ],
 }
