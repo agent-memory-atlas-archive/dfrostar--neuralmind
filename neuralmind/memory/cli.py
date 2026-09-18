@@ -14,14 +14,12 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sqlite3
 import sys
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-
 
 # ---------------------------------------------------------------------------
 # Status constants
@@ -55,8 +53,7 @@ def _get_db(project_path: str | Path) -> sqlite3.Connection:
 
 def _ensure_schema(conn: sqlite3.Connection) -> None:
     """Create tables if they don't exist."""
-    conn.executescript(
-        """
+    conn.executescript("""
         CREATE TABLE IF NOT EXISTS decisions (
             id TEXT PRIMARY KEY,
             title TEXT NOT NULL,
@@ -107,8 +104,7 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
         CREATE VIRTUAL TABLE IF NOT EXISTS decisions_fts USING fts5(
             title, rationale, content='decisions_fts_map', content_rowid='rowid'
         );
-        """
-    )
+        """)
     conn.commit()
 
 
@@ -157,10 +153,7 @@ def _insert_decision(
         conn.executemany(
             """INSERT INTO rejected_alternatives
                (decision_id, option, rejection_reason) VALUES (?, ?, ?)""",
-            [
-                (decision_id, r.get("option", ""), r.get("reason", ""))
-                for r in rejected
-            ],
+            [(decision_id, r.get("option", ""), r.get("reason", "")) for r in rejected],
         )
     if evidence_list:
         conn.executemany(
@@ -193,9 +186,7 @@ def _insert_decision(
 
 def _get_decision(conn: sqlite3.Connection, decision_id: str) -> dict[str, Any] | None:
     """Fetch a single decision by ID."""
-    row = conn.execute(
-        "SELECT * FROM decisions WHERE id = ?", (decision_id,)
-    ).fetchone()
+    row = conn.execute("SELECT * FROM decisions WHERE id = ?", (decision_id,)).fetchone()
     if not row:
         return None
     d = dict(row)
@@ -245,7 +236,7 @@ def _query_decisions(
     # Try FTS first, fall back to LIKE
     try:
         if status_clause:
-            fts_query = f"""
+            fts_query = """
                 SELECT d.*, 1.0 as score
                 FROM decisions_fts f
                 JOIN decisions_fts_map m ON m.rowid = f.rowid
@@ -256,7 +247,7 @@ def _query_decisions(
             """
             rows = conn.execute(fts_query, (query_text, status, limit)).fetchall()
         else:
-            fts_query = f"""
+            fts_query = """
                 SELECT d.*, 1.0 as score
                 FROM decisions_fts f
                 JOIN decisions_fts_map m ON m.rowid = f.rowid
@@ -278,11 +269,9 @@ def _query_decisions(
                 ORDER BY d.updated_at DESC
                 LIMIT ?
             """
-            rows = conn.execute(
-                like_query, (*params, like_pattern, like_pattern, limit)
-            ).fetchall()
+            rows = conn.execute(like_query, (*params, like_pattern, like_pattern, limit)).fetchall()
         else:
-            like_query = f"""
+            like_query = """
                 SELECT d.*, 1.0 as score
                 FROM decisions d
                 WHERE d.title LIKE ? OR d.rationale LIKE ?
@@ -378,9 +367,7 @@ def _list_decisions(
     return results
 
 
-def _invalidate_decision(
-    conn: sqlite3.Connection, decision_id: str, reason: str = ""
-) -> bool:
+def _invalidate_decision(conn: sqlite3.Connection, decision_id: str, reason: str = "") -> bool:
     """Mark a decision as stale/invalidated. Returns True if found."""
     now = datetime.now(timezone.utc).isoformat()
     cur = conn.execute(
@@ -436,10 +423,7 @@ def _amend_decision(
         conn.executemany(
             """INSERT INTO rejected_alternatives
                (decision_id, option, rejection_reason) VALUES (?, ?, ?)""",
-            [
-                (decision_id, r.get("option", ""), r.get("reason", ""))
-                for r in rejected
-            ],
+            [(decision_id, r.get("option", ""), r.get("reason", "")) for r in rejected],
         )
     if evidence_list:
         conn.executemany(
@@ -478,10 +462,9 @@ def _status_badge(status: str) -> str:
     """Return a colored status indicator."""
     if status == STATUS_ACTIVE:
         return "ACTIVE 🟢"
-    elif status == STATUS_STALE:
+    if status == STATUS_STALE:
         return "STALE 🔴"
-    else:
-        return "INVALIDATED ⚪"
+    return "INVALIDATED ⚪"
 
 
 def _format_table_plain(headers: list[str], rows: list[list[str]]) -> str:
@@ -494,11 +477,11 @@ def _format_table_plain(headers: list[str], rows: list[list[str]]) -> str:
             col_widths[i] = max(col_widths[i], len(cell))
     sep = "─" * (sum(col_widths) + 3 * len(headers) + 1)
     lines = [sep]
-    header_line = " │ ".join(h.ljust(w) for h, w in zip(headers, col_widths))
+    header_line = " │ ".join(h.ljust(w) for h, w in zip(headers, col_widths, strict=True))
     lines.append(f"│ {header_line} │")
     lines.append(sep)
     for row in rows:
-        row_line = " │ ".join(cell.ljust(w) for cell, w in zip(row, col_widths))
+        row_line = " │ ".join(cell.ljust(w) for cell, w in zip(row, col_widths, strict=True))
         lines.append(f"│ {row_line} │")
     lines.append(sep)
     return "\n".join(lines)
@@ -685,9 +668,7 @@ def cmd_memory_amend(args: argparse.Namespace) -> None:
                 if isinstance(evidence, dict):
                     evidence = [evidence]
             except json.JSONDecodeError:
-                evidence = [
-                    {"type": "supporting", "content": evidence_str, "source": "cli"}
-                ]
+                evidence = [{"type": "supporting", "content": evidence_str, "source": "cli"}]
 
         _amend_decision(
             conn,
@@ -717,9 +698,7 @@ def cmd_memory_audit(args: argparse.Namespace) -> None:
 
     conn = _get_db(project_path)
     try:
-        results = _list_decisions(
-            conn, stale_only=stale_only, orphaned_only=orphaned_only
-        )
+        results = _list_decisions(conn, stale_only=stale_only, orphaned_only=orphaned_only)
     finally:
         conn.close()
 
@@ -798,21 +777,13 @@ def cmd_memory_export(args: argparse.Namespace) -> None:
             if d.get("rejected_alternatives"):
                 lines.append("- **Rejected alternatives:**")
                 for ra in d["rejected_alternatives"]:
-                    lines.append(
-                        f"  - {ra['option']}: {ra.get('rejection_reason', '')}"
-                    )
+                    lines.append(f"  - {ra['option']}: {ra.get('rejection_reason', '')}")
             if d.get("evidence"):
                 lines.append("- **Evidence:**")
                 for ev in d["evidence"]:
-                    lines.append(
-                        f"  - [{ev.get('type', 'supporting')}] {ev.get('content', '')}"
-                    )
-            lines.append(
-                f"- **Created:** {d.get('created_at', '')}"
-            )
-            lines.append(
-                f"- **Updated:** {d.get('updated_at', '')}"
-            )
+                    lines.append(f"  - [{ev.get('type', 'supporting')}] {ev.get('content', '')}")
+            lines.append(f"- **Created:** {d.get('created_at', '')}")
+            lines.append(f"- **Updated:** {d.get('updated_at', '')}")
             lines.append("")
         output = "\n".join(lines)
 
@@ -901,12 +872,8 @@ def cmd_memory_eval(args: argparse.Namespace) -> None:
     total = len(all_decisions)
     active = sum(1 for d in all_decisions if d.get("status") == STATUS_ACTIVE)
     stale = sum(1 for d in all_decisions if d.get("status") == STATUS_STALE)
-    invalidated = sum(
-        1 for d in all_decisions if d.get("status") == STATUS_INVALIDATED
-    )
-    avg_confidence = (
-        sum(d.get("confidence", 1.0) for d in all_decisions) / total if total else 0.0
-    )
+    invalidated = sum(1 for d in all_decisions if d.get("status") == STATUS_INVALIDATED)
+    avg_confidence = sum(d.get("confidence", 1.0) for d in all_decisions) / total if total else 0.0
     with_commit = sum(1 for d in all_decisions if d.get("commit_sha"))
 
     report = {
@@ -1083,7 +1050,7 @@ def build_memory_subparsers(subparsers: argparse._SubParsersAction) -> None:
     amend_p.add_argument(
         "--rejected",
         default=None,
-        help='Rejected alternatives as JSON array',
+        help="Rejected alternatives as JSON array",
     )
     amend_p.add_argument(
         "--evidence",

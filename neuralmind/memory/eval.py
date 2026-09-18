@@ -36,8 +36,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from .store import DecisionStore, DecisionRecord
-
+from .store import DecisionRecord, DecisionStore
 
 # ---------------------------------------------------------------------------
 # Data model
@@ -268,8 +267,7 @@ _TASK_SEED_DECISIONS: dict[str, list[dict[str, Any]]] = {
             "id": "dec-config-logging-002",
             "title": "Set log level to INFO in production",
             "rationale": (
-                "INFO in production keeps log volume manageable. DEBUG in dev "
-                "aids development."
+                "INFO in production keeps log volume manageable. DEBUG in dev aids development."
             ),
             "decision_type": "CONFIG",
             "status": "ACTIVE",
@@ -474,7 +472,7 @@ class MaintenanceEval:
 
         # Seed all decisions from task definitions
         now = datetime.now(timezone.utc)
-        for task_id, decisions in _TASK_SEED_DECISIONS.items():
+        for _task_id, decisions in _TASK_SEED_DECISIONS.items():
             for d in decisions:
                 # Stagger created_at so ordering is deterministic
                 created = now - timedelta(hours=len(d["title"]))
@@ -626,18 +624,22 @@ class MaintenanceEval:
                     }
                     for r in report.memory_on
                 ],
-                "aggregate": {
-                    "total_tasks": report.aggregate_on.total_tasks,
-                    "total_expected_recalled": report.aggregate_on.total_expected_recalled,
-                    "total_expected_missed": report.aggregate_on.total_expected_missed,
-                    "total_incorrect_recalls": report.aggregate_on.total_incorrect_recalls,
-                    "total_stale_recalled": report.aggregate_on.total_stale_recalled,
-                    "mean_time_to_locate_ms": report.aggregate_on.mean_time_to_locate_ms,
-                    "total_token_usage": report.aggregate_on.total_token_usage,
-                    "recall_rate": report.aggregate_on.recall_rate,
-                    "precision": report.aggregate_on.precision,
-                    "stale_influence_rate": report.aggregate_on.stale_influence_rate,
-                } if report.aggregate_on else None,
+                "aggregate": (
+                    {
+                        "total_tasks": report.aggregate_on.total_tasks,
+                        "total_expected_recalled": report.aggregate_on.total_expected_recalled,
+                        "total_expected_missed": report.aggregate_on.total_expected_missed,
+                        "total_incorrect_recalls": report.aggregate_on.total_incorrect_recalls,
+                        "total_stale_recalled": report.aggregate_on.total_stale_recalled,
+                        "mean_time_to_locate_ms": report.aggregate_on.mean_time_to_locate_ms,
+                        "total_token_usage": report.aggregate_on.total_token_usage,
+                        "recall_rate": report.aggregate_on.recall_rate,
+                        "precision": report.aggregate_on.precision,
+                        "stale_influence_rate": report.aggregate_on.stale_influence_rate,
+                    }
+                    if report.aggregate_on
+                    else None
+                ),
             },
             "memory_off": {
                 "per_task": [
@@ -655,18 +657,22 @@ class MaintenanceEval:
                     }
                     for r in report.memory_off
                 ],
-                "aggregate": {
-                    "total_tasks": report.aggregate_off.total_tasks,
-                    "total_expected_recalled": report.aggregate_off.total_expected_recalled,
-                    "total_expected_missed": report.aggregate_off.total_expected_missed,
-                    "total_incorrect_recalls": report.aggregate_off.total_incorrect_recalls,
-                    "total_stale_recalled": report.aggregate_off.total_stale_recalled,
-                    "mean_time_to_locate_ms": report.aggregate_off.mean_time_to_locate_ms,
-                    "total_token_usage": report.aggregate_off.total_token_usage,
-                    "recall_rate": report.aggregate_off.recall_rate,
-                    "precision": report.aggregate_off.precision,
-                    "stale_influence_rate": report.aggregate_off.stale_influence_rate,
-                } if report.aggregate_off else None,
+                "aggregate": (
+                    {
+                        "total_tasks": report.aggregate_off.total_tasks,
+                        "total_expected_recalled": report.aggregate_off.total_expected_recalled,
+                        "total_expected_missed": report.aggregate_off.total_expected_missed,
+                        "total_incorrect_recalls": report.aggregate_off.total_incorrect_recalls,
+                        "total_stale_recalled": report.aggregate_off.total_stale_recalled,
+                        "mean_time_to_locate_ms": report.aggregate_off.mean_time_to_locate_ms,
+                        "total_token_usage": report.aggregate_off.total_token_usage,
+                        "recall_rate": report.aggregate_off.recall_rate,
+                        "precision": report.aggregate_off.precision,
+                        "stale_influence_rate": report.aggregate_off.stale_influence_rate,
+                    }
+                    if report.aggregate_off
+                    else None
+                ),
             },
             "delta": report.delta,
         }
@@ -694,15 +700,60 @@ class MaintenanceEval:
         off = report.aggregate_off
         if on and off:
             rows = [
-                ("Recall rate", f"{on.recall_rate:.1%}", f"{off.recall_rate:.1%}", f"{report.delta.get('recall_rate', 0):+.1%}"),
-                ("Precision", f"{on.precision:.1%}", f"{off.precision:.1%}", f"{report.delta.get('precision', 0):+.1%}"),
-                ("Stale influence rate", f"{on.stale_influence_rate:.1%}", f"{off.stale_influence_rate:.1%}", f"{report.delta.get('stale_influence_rate', 0):+.1%}"),
-                ("Mean time to locate (ms)", f"{on.mean_time_to_locate_ms:.1f}", f"{off.mean_time_to_locate_ms:.1f}", f"{report.delta.get('mean_time_to_locate_ms', 0):+.1f}"),
-                ("Total token usage", str(on.total_token_usage), str(off.total_token_usage), str(report.delta.get('total_token_usage', 0))),
-                ("Expected recalled", str(on.total_expected_recalled), str(off.total_expected_recalled), str(report.delta.get('total_expected_recalled', 0))),
-                ("Expected missed", str(on.total_expected_missed), str(off.total_expected_missed), str(report.delta.get('total_expected_missed', 0))),
-                ("Incorrect recalls", str(on.total_incorrect_recalls), str(off.total_incorrect_recalls), str(report.delta.get('total_incorrect_recalls', 0))),
-                ("Stale recalled", str(on.total_stale_recalled), str(off.total_stale_recalled), str(report.delta.get('total_stale_recalled', 0))),
+                (
+                    "Recall rate",
+                    f"{on.recall_rate:.1%}",
+                    f"{off.recall_rate:.1%}",
+                    f"{report.delta.get('recall_rate', 0):+.1%}",
+                ),
+                (
+                    "Precision",
+                    f"{on.precision:.1%}",
+                    f"{off.precision:.1%}",
+                    f"{report.delta.get('precision', 0):+.1%}",
+                ),
+                (
+                    "Stale influence rate",
+                    f"{on.stale_influence_rate:.1%}",
+                    f"{off.stale_influence_rate:.1%}",
+                    f"{report.delta.get('stale_influence_rate', 0):+.1%}",
+                ),
+                (
+                    "Mean time to locate (ms)",
+                    f"{on.mean_time_to_locate_ms:.1f}",
+                    f"{off.mean_time_to_locate_ms:.1f}",
+                    f"{report.delta.get('mean_time_to_locate_ms', 0):+.1f}",
+                ),
+                (
+                    "Total token usage",
+                    str(on.total_token_usage),
+                    str(off.total_token_usage),
+                    str(report.delta.get("total_token_usage", 0)),
+                ),
+                (
+                    "Expected recalled",
+                    str(on.total_expected_recalled),
+                    str(off.total_expected_recalled),
+                    str(report.delta.get("total_expected_recalled", 0)),
+                ),
+                (
+                    "Expected missed",
+                    str(on.total_expected_missed),
+                    str(off.total_expected_missed),
+                    str(report.delta.get("total_expected_missed", 0)),
+                ),
+                (
+                    "Incorrect recalls",
+                    str(on.total_incorrect_recalls),
+                    str(off.total_incorrect_recalls),
+                    str(report.delta.get("total_incorrect_recalls", 0)),
+                ),
+                (
+                    "Stale recalled",
+                    str(on.total_stale_recalled),
+                    str(off.total_stale_recalled),
+                    str(report.delta.get("total_stale_recalled", 0)),
+                ),
             ]
             for label, on_val, off_val, delta_val in rows:
                 lines.append(f"| {label} | {on_val} | {off_val} | {delta_val} |")
@@ -721,13 +772,27 @@ class MaintenanceEval:
             lines.append("")
             lines.append("| Metric | Memory ON | Memory OFF |")
             lines.append("|--------|-----------|------------|")
-            lines.append(f"| Time to locate (ms) | {task_on.time_to_locate_evidence_ms:.1f} | {task_off.time_to_locate_evidence_ms if task_off else '—'} |")
-            lines.append(f"| Expected recalled | {', '.join(task_on.expected_recalled) or '—'} | {', '.join(task_off.expected_recalled) if task_off else '—'} |")
-            lines.append(f"| Expected missed | {', '.join(task_on.expected_missed) or '—'} | {', '.join(task_off.expected_missed) if task_off else '—'} |")
-            lines.append(f"| Incorrect recalls | {', '.join(task_on.incorrect_recalls) or '—'} | {', '.join(task_off.incorrect_recalls) if task_off else '—'} |")
-            lines.append(f"| Stale recalled | {', '.join(task_on.stale_recalled) or '—'} | {', '.join(task_off.stale_recalled) if task_off else '—'} |")
-            lines.append(f"| Token usage | {task_on.token_usage} | {task_off.token_usage if task_off else '—'} |")
-            lines.append(f"| Result count | {task_on.result_count} | {task_off.result_count if task_off else '—'} |")
+            lines.append(
+                f"| Time to locate (ms) | {task_on.time_to_locate_evidence_ms:.1f} | {task_off.time_to_locate_evidence_ms if task_off else '—'} |"
+            )
+            lines.append(
+                f"| Expected recalled | {', '.join(task_on.expected_recalled) or '—'} | {', '.join(task_off.expected_recalled) if task_off else '—'} |"
+            )
+            lines.append(
+                f"| Expected missed | {', '.join(task_on.expected_missed) or '—'} | {', '.join(task_off.expected_missed) if task_off else '—'} |"
+            )
+            lines.append(
+                f"| Incorrect recalls | {', '.join(task_on.incorrect_recalls) or '—'} | {', '.join(task_off.incorrect_recalls) if task_off else '—'} |"
+            )
+            lines.append(
+                f"| Stale recalled | {', '.join(task_on.stale_recalled) or '—'} | {', '.join(task_off.stale_recalled) if task_off else '—'} |"
+            )
+            lines.append(
+                f"| Token usage | {task_on.token_usage} | {task_off.token_usage if task_off else '—'} |"
+            )
+            lines.append(
+                f"| Result count | {task_on.result_count} | {task_off.result_count if task_off else '—'} |"
+            )
             lines.append("")
 
         return "\n".join(lines)
@@ -776,15 +841,25 @@ class MaintenanceEval:
             delta["recall_rate"] = round(agg_on.recall_rate - agg_off.recall_rate, 4)
             delta["precision"] = round(agg_on.precision - agg_off.precision, 4)
             # For stale_influence, negative delta is good (memory reduces stale influence)
-            delta["stale_influence_rate"] = round(agg_on.stale_influence_rate - agg_off.stale_influence_rate, 4)
+            delta["stale_influence_rate"] = round(
+                agg_on.stale_influence_rate - agg_off.stale_influence_rate, 4
+            )
             delta["mean_time_to_locate_ms"] = round(
                 agg_on.mean_time_to_locate_ms - agg_off.mean_time_to_locate_ms, 3
             )
             delta["total_token_usage"] = agg_on.total_token_usage - agg_off.total_token_usage
-            delta["total_expected_recalled"] = agg_on.total_expected_recalled - agg_off.total_expected_recalled
-            delta["total_expected_missed"] = agg_on.total_expected_missed - agg_off.total_expected_missed
-            delta["total_incorrect_recalls"] = agg_on.total_incorrect_recalls - agg_off.total_incorrect_recalls
-            delta["total_stale_recalled"] = agg_on.total_stale_recalled - agg_off.total_stale_recalled
+            delta["total_expected_recalled"] = (
+                agg_on.total_expected_recalled - agg_off.total_expected_recalled
+            )
+            delta["total_expected_missed"] = (
+                agg_on.total_expected_missed - agg_off.total_expected_missed
+            )
+            delta["total_incorrect_recalls"] = (
+                agg_on.total_incorrect_recalls - agg_off.total_incorrect_recalls
+            )
+            delta["total_stale_recalled"] = (
+                agg_on.total_stale_recalled - agg_off.total_stale_recalled
+            )
 
         report = BenchmarkReport(
             project_path=self.project_path,

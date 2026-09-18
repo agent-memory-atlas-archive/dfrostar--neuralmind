@@ -53,6 +53,7 @@ logger = logging.getLogger(__name__)
 # Protocol: what the engine needs from a decision store
 # --------------------------------------------------------------------------- #
 
+
 class DecisionRecord(Protocol):
     """Structural type for a decision record — duck-typed for flexibility.
 
@@ -90,6 +91,7 @@ class DecisionStore(Protocol):
 # --------------------------------------------------------------------------- #
 # Git integration helpers
 # --------------------------------------------------------------------------- #
+
 
 def _git(
     args: list[str],
@@ -133,11 +135,7 @@ def get_changed_files(project_path: str | Path) -> list[str]:
     )
     if result.returncode != 0:
         return []
-    return [
-        line.strip()
-        for line in result.stdout.splitlines()
-        if line.strip()
-    ]
+    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
 
 def get_current_commit(project_path: str | Path) -> str:
@@ -381,6 +379,7 @@ class InvalidationEngine:
         """
         try:
             from ..event_bus import publish
+
             publish("decision_invalidated", event.to_dict())
         except Exception:
             pass  # event bus is optional
@@ -389,6 +388,7 @@ class InvalidationEngine:
 # --------------------------------------------------------------------------- #
 # Simple in-memory store (for tests / standalone use)
 # --------------------------------------------------------------------------- #
+
 
 class InMemoryDecisionStore:
     """A dict-backed DecisionStore for testing and standalone use.
@@ -407,17 +407,11 @@ class InMemoryDecisionStore:
     def find_by_files(self, files: list[str]) -> list[DecisionRecord]:
         """Return decisions whose files_affected overlap the given paths."""
         file_set = set(files)
-        return [
-            rec for rec in self._records.values()
-            if set(rec.files_affected) & file_set
-        ]
+        return [rec for rec in self._records.values() if set(rec.files_affected) & file_set]
 
     def find_dependents(self, decision_id: str) -> list[DecisionRecord]:
         """Return decisions that depend on the given decision_id."""
-        return [
-            rec for rec in self._records.values()
-            if decision_id in rec.dependency_constraints
-        ]
+        return [rec for rec in self._records.values() if decision_id in rec.dependency_constraints]
 
     def find_stale(self) -> list[DecisionRecord]:
         """Return all decisions with status STALE."""
@@ -449,6 +443,7 @@ def _replace_field(record: DecisionRecord, field_name: str, value: Any) -> Decis
     Works with both frozen and mutable dataclasses.
     """
     import copy
+
     new_record = copy.copy(record)
     object.__setattr__(new_record, field_name, value)
     return new_record

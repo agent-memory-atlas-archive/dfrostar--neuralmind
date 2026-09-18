@@ -2714,6 +2714,7 @@ def cmd_decisions_record(args):
     if not commit:
         try:
             import subprocess
+
             commit = subprocess.check_output(
                 ["git", "rev-parse", "HEAD"],
                 cwd=args.project_path,
@@ -2831,6 +2832,7 @@ def cmd_decisions_restore(args):
     if not commit:
         try:
             import subprocess
+
             commit = subprocess.check_output(
                 ["git", "rev-parse", "HEAD"],
                 cwd=args.project_path,

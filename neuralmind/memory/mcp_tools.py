@@ -18,8 +18,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .store import DecisionStore, DecisionRecord
-
+from .store import DecisionStore
 
 # ---------------------------------------------------------------------------
 # Store accessor

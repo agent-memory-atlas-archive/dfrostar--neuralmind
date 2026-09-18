@@ -183,6 +183,7 @@ STALE_DAYS = 90
 # Helpers
 # --------------------------------------------------------------------------- #
 
+
 def _row_to_record(row: tuple) -> DecisionRecord:
     """Convert a raw SQLite row tuple to a DecisionRecord.
 
@@ -247,6 +248,7 @@ def _now_iso() -> str:
 # --------------------------------------------------------------------------- #
 # DecisionStore
 # --------------------------------------------------------------------------- #
+
 
 class DecisionStore:
     """SQLite-backed store for project-level architectural decisions.
@@ -375,7 +377,9 @@ class DecisionStore:
             rationale=rationale,
             commit_sha=commit_sha,
             files_affected=list(files_affected or []),
-            decision_type=decision_type if decision_type in VALID_DECISION_TYPES else DEFAULT_DECISION_TYPE,
+            decision_type=(
+                decision_type if decision_type in VALID_DECISION_TYPES else DEFAULT_DECISION_TYPE
+            ),
             confidence=max(0.0, min(1.0, confidence)),
             status=status if status in VALID_STATUSES else DEFAULT_STATUS,
             author=author,
@@ -620,15 +624,13 @@ class DecisionStore:
         """Return all decisions with status STALE."""
         try:
             with self._connect() as conn:
-                cur = conn.execute(
-                    """SELECT id, title, rationale, commit_sha, files_affected,
+                cur = conn.execute("""SELECT id, title, rationale, commit_sha, files_affected,
                               decision_type, confidence, status, author,
                               created_at, updated_at, evidence,
                               rejected_alternatives, dependency_constraints, tags
                        FROM decisions
                        WHERE status = 'STALE'
-                       ORDER BY updated_at ASC"""
-                )
+                       ORDER BY updated_at ASC""")
                 return [_row_to_record(row) for row in cur.fetchall()]
         except Exception:
             return []
@@ -829,23 +831,22 @@ class DecisionStore:
                         (status,),
                     )
                 else:
-                    cur = conn.execute(
-                        """SELECT id, title, rationale, commit_sha, files_affected,
+                    cur = conn.execute("""SELECT id, title, rationale, commit_sha, files_affected,
                                   decision_type, confidence, status, author,
                                   created_at, updated_at, evidence,
                                   rejected_alternatives, dependency_constraints, tags
                            FROM decisions
-                           ORDER BY created_at DESC"""
-                    )
+                           ORDER BY created_at DESC""")
                 return [_row_to_record(row) for row in cur.fetchall()]
         except Exception:
             return []
 
     def _audit_stale(self, conn: sqlite3.Connection) -> list[DecisionRecord]:
         """Find decisions whose updated_at is older than STALE_DAYS."""
-        from datetime import timedelta
 
-        cutoff = (datetime.now(timezone.utc) - __import__("datetime").timedelta(days=STALE_DAYS)).isoformat()
+        cutoff = (
+            datetime.now(timezone.utc) - __import__("datetime").timedelta(days=STALE_DAYS)
+        ).isoformat()
         cur = conn.execute(
             """SELECT id, title, rationale, commit_sha, files_affected,
                        decision_type, confidence, status, author,
@@ -934,15 +935,13 @@ class DecisionStore:
         """Fetch all ACTIVE decisions ordered by created_at DESC."""
         try:
             with self._connect() as conn:
-                cur = conn.execute(
-                    """SELECT id, title, rationale, commit_sha, files_affected,
+                cur = conn.execute("""SELECT id, title, rationale, commit_sha, files_affected,
                                decision_type, confidence, status, author,
                                created_at, updated_at, evidence,
                                rejected_alternatives, dependency_constraints, tags
                         FROM decisions
                         WHERE status = 'ACTIVE'
-                        ORDER BY created_at DESC"""
-                )
+                        ORDER BY created_at DESC""")
                 return [_row_to_record(row) for row in cur.fetchall()]
         except Exception:
             return []
