@@ -130,6 +130,18 @@ const featureList: { icon: IconName; title: string; desc: string; badge: string 
         desc: 'Background knowledge consolidation: reinforces co-access patterns, decays unused edges, promotes strong clusters, and prunes stale synapses. Runs while you work.',
         badge: 'v3.13.0',
     },
+    {
+        icon: 'recall',
+        title: 'Decision Memory',
+        desc: 'Every architecture decision stored with rationale, evidence, commit SHA, and rejected alternatives. FTS5-searchable, invalidated automatically when the code it describes changes. 4 MCP tools, RBAC, audit + export.',
+        badge: 'v4.1.0',
+    },
+    {
+        icon: 'shield-check',
+        title: 'Stale-Decision Guard',
+        desc: 'Before your agent edits a file, a PreToolUse hook surfaces any decisions governing that file that are no longer ACTIVE — so stale memory can never silently steer an edit. Fail-open, opt-out via env var.',
+        badge: 'v4.2.0',
+    },
 ];
 
 export default function Features() {

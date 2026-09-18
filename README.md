@@ -405,7 +405,8 @@ _3 submission(s). See the [JSON data](docs/community-benchmarks.json) for notes 
 Behavior toggles: `NEURALMIND_BYPASS=1` (skip compression),
 `NEURALMIND_SYNAPSE_INJECT=0` (skip prompt-time recall),
 `NEURALMIND_SYNAPSE_EXPORT=0` (skip memory export),
-`NEURALMIND_TEAM_MEMORY=0` (skip team-bundle import). All fail-open.
+`NEURALMIND_TEAM_MEMORY=0` (skip team-bundle import),
+`NEURALMIND_STALE_GUARD=0` (skip the PreToolUse stale-decision guard). All fail-open.
 
 ---
 

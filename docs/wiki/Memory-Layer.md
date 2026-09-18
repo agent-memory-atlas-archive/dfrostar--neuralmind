@@ -78,6 +78,29 @@ Registered in the MCP server (25 tools total as of v4.1.0):
 - Audit returns a list; STALE detection is age-based (90 days) plus orphaned-SHA detection
 - `DecisionStore` has no `.close()` — connections are managed internally
 
+## Stale-Decision Guard (v4.2.0)
+
+The runtime counterpart of the eval harness's `stale_influence_rate` metric: instead of only measuring how often stale memory steers edits, the guard prevents it.
+
+**How it works:** when your agent is about to edit a file (Claude Code `Edit`/`Write` tools), a `PreToolUse` hook checks the decision store for any STALE or INVALIDATED decisions whose `files_affected` covers that file. If found, they're injected into the agent's context before the edit lands:
+
+```
+[neuralmind stale-guard] 1 decision(s) governing neuralmind/db.py are no longer ACTIVE. Their rationale may not hold — verify before relying on them:
+- [STALE] Use SQLite WAL (confidence 0.90, updated 2026-09-10): WAL mode required for concurrent readers...
+```
+
+The agent sees which remembered rationales may no longer hold — before it edits, not after.
+
+**Properties:**
+
+- **Fail-open by design** — no store, guard error, or empty result produces no output; the edit proceeds normally. A guard failure must never block an edit.
+- **Never denies edits** — pure context injection. The agent (and user) decide what to do with the information.
+- **Opt-out:** `NEURALMIND_STALE_GUARD=0`
+- **Cap:** at most 5 decisions surfaced per edit, with a pointer to `neuralmind memory audit` for the rest
+- **Path normalization:** absolute hook paths are resolved to repo-relative before matching `files_affected`
+
+**Installation:** ships with `neuralmind install-hooks` (hook block v3). Existing installs pick it up automatically on upgrade — re-run `neuralmind install-hooks` after upgrading to v4.2.0+.
+
 ## Python API
 
 ```python
