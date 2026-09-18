@@ -458,7 +458,7 @@ class DecisionStore:
                         decision.title,
                         decision.rationale,
                         decision.commit_sha,
-                        json.dumps(decision.files),
+                        json.dumps(decision.files_affected),
                         decision.decision_type,
                         decision.confidence,
                         decision.status,
