@@ -253,3 +253,52 @@ def test_list_all_filters_status(store):
     active = store.list_all(status="ACTIVE")
     assert all(d.status == "ACTIVE" for d in active)
     assert len(active) >= 1
+
+
+# --------------------------------------------------------------------------- #
+# Fail-open logging (regression for the 066a48b silent-no-op class of bug)
+# --------------------------------------------------------------------------- #
+
+
+class TestFailOpenLogging:
+    """Fail-open paths must log, never silently swallow exceptions.
+
+    The original update() bug (066a48b) hid behind ``except Exception:
+    pass`` — every update was a silent no-op. These tests pin the contract
+    that a swallowed failure still emits a log record.
+    """
+
+    def test_update_status_failure_logs(self, store, caplog):
+        """A failing update_status() must emit an ERROR log, not pass silently."""
+        import logging
+
+        _record(store)
+        decision_id = store.list_all()[0].id
+
+        # Drop the table so the UPDATE raises inside the try block.
+        with store._connect() as conn:
+            conn.execute("DROP TABLE decisions")
+
+        with caplog.at_level(logging.ERROR, logger="neuralmind.memory.store"):
+            store.update_status(decision_id, "STALE")
+
+        assert any(
+            "update_status" in r.message for r in caplog.records
+        ), "update_status failure was swallowed without logging"
+
+    def test_no_silent_pass_in_memory_module(self):
+        """Source-level guard: no ``except Exception: pass`` remains in memory/."""
+        import re
+        from pathlib import Path
+
+        memory_dir = Path(__file__).parent.parent.parent / "neuralmind" / "memory"
+        pattern = re.compile(r"except\s+Exception.*:\s*\n\s*pass\s*$", re.MULTILINE)
+        offenders = []
+        for py in memory_dir.glob("*.py"):
+            matches = pattern.findall(py.read_text(encoding="utf-8"))
+            if matches:
+                offenders.append(f"{py.name}: {len(matches)}")
+        assert not offenders, (
+            f"Silent except-pass blocks found in memory/: {offenders}. "
+            "Fail-open paths must log (see 066a48b)."
+        )

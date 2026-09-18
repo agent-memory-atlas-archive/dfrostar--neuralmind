@@ -382,7 +382,9 @@ class InvalidationEngine:
 
             publish("decision_invalidated", event.to_dict())
         except Exception:
-            pass  # event bus is optional
+            # Event bus is optional — log at DEBUG so normal operation is
+            # silent, but misconfigured event routing is diagnosable.
+            logger.debug("[memory] event bus publish failed for %s (non-blocking)", event.id)
 
 
 # --------------------------------------------------------------------------- #

@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 CONSENT_FILE_NAME = "memory_consent.json"
 QUERY_EVENTS_FILE_NAME = "query_events.jsonl"
@@ -223,7 +226,7 @@ def read_query_events(events_file: Path) -> list[dict[str, Any]]:
                 except json.JSONDecodeError:
                     continue
     except Exception:
-        pass
+        logger.exception("[memory] failed reading query events from %s — returning []", events_file)
 
     return events
 
@@ -250,7 +253,7 @@ def read_events(events_file: Path) -> list[dict[str, Any]]:
                 except json.JSONDecodeError:
                     continue
     except Exception:
-        pass
+        logger.exception("[memory] failed reading events from %s — returning []", events_file)
     return events
 
 

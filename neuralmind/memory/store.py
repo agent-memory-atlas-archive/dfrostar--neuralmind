@@ -35,6 +35,7 @@ best-effort so a DecisionStore failure never breaks the surrounding workflow.
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 import uuid
 from contextlib import contextmanager
@@ -45,6 +46,8 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from neuralmind.state_dir import ensure_parent_dir
+
+logger = logging.getLogger(__name__)
 
 # --------------------------------------------------------------------------- #
 # Data model (from TRD)
@@ -418,8 +421,10 @@ class DecisionStore:
                     ),
                 )
         except Exception:
-            # Fail-open: a write failure must never crash the caller.
-            pass
+            # Fail-open: a write failure must never crash the caller, but it
+            # MUST be visible — the update() silent-no-op bug (066a48b) hid
+            # here. Log with traceback for diagnosis.
+            logger.exception("[memory] record() failed for decision %s — not persisted", rec.id)
         return rec
 
     # ------------------------------------------------------------------ #
@@ -439,7 +444,11 @@ class DecisionStore:
                     (status, _now_iso(), decision_id),
                 )
         except Exception:
-            pass
+            logger.exception(
+                "[memory] update_status(%s, %s) failed — status unchanged",
+                decision_id,
+                status,
+            )
 
     def update(self, decision: DecisionRecord) -> None:
         """Update all fields of a decision record."""
@@ -472,7 +481,7 @@ class DecisionStore:
                     ),
                 )
         except Exception:
-            pass
+            logger.exception("[memory] update(%s) failed — decision not persisted", decision.id)
 
     def invalidate(self, decision_id: str, reason: str = "") -> None:
         """Mark a decision INVALIDATED.
@@ -494,7 +503,7 @@ class DecisionStore:
                     (_now_iso(), note, decision_id),
                 )
         except Exception:
-            pass
+            logger.exception("[memory] invalidate(%s) failed — decision still active", decision_id)
 
     def restore(self, decision_id: str, new_commit_sha: str) -> DecisionRecord:
         """Re-anchor a decision to a new commit and reset its status to ACTIVE.
@@ -521,7 +530,7 @@ class DecisionStore:
                     ),
                 )
         except Exception:
-            pass
+            logger.exception("[memory] restore(%s) failed — decision not re-anchored", decision_id)
         restored = self.get(decision_id)
         if restored is None:
             raise KeyError(f"Decision not found: {decision_id}")
@@ -533,7 +542,7 @@ class DecisionStore:
             with self._connect() as conn:
                 conn.execute("DELETE FROM decisions WHERE id = ?", (decision_id,))
         except Exception:
-            pass
+            logger.exception("[memory] delete(%s) failed — record still present", decision_id)
 
     # ------------------------------------------------------------------ #
     # Reads
@@ -556,6 +565,7 @@ class DecisionStore:
                     return None
                 return _row_to_record(row)
         except Exception:
+            logger.exception("[memory] get(%s) failed — returning None", decision_id)
             return None
 
     # ------------------------------------------------------------------ #
@@ -591,7 +601,11 @@ class DecisionStore:
                 )
                 records = [_row_to_record(row) for row in cur.fetchall()]
         except Exception:
-            pass
+            logger.exception(
+                "[memory] find_by_files() failed — returning [] (invalidation "
+                "may miss decisions for: %s)",
+                files,
+            )
         return records
 
     def find_dependents(self, decision_id: str) -> list[DecisionRecord]:
@@ -617,7 +631,11 @@ class DecisionStore:
                 )
                 records = [_row_to_record(row) for row in cur.fetchall()]
         except Exception:
-            pass
+            logger.exception(
+                "[memory] find_dependents(%s) failed — returning [] (cascade "
+                "invalidation may miss dependents)",
+                decision_id,
+            )
         return records
 
     def find_stale(self) -> list[DecisionRecord]:
@@ -669,6 +687,11 @@ class DecisionStore:
                 else:
                     records = self._query_like(conn, text, limit, status, min_score)
         except Exception:
+            logger.exception(
+                "[memory] query(%r) failed — returning [] (agent will not see "
+                "any decisions for this query)",
+                text,
+            )
             return []
         return records
 
@@ -795,6 +818,10 @@ class DecisionStore:
                     # Return both stale + orphaned when neither flag is set.
                     records = self._audit_stale(conn) + self._audit_orphaned(conn)
         except Exception:
+            logger.exception(
+                "[memory] audit() failed — returning [] (stale/orphaned "
+                "decisions will not be surfaced)"
+            )
             return []
         # Deduplicate (a decision could be both stale and orphaned).
         seen: set[str] = set()
@@ -839,6 +866,10 @@ class DecisionStore:
                            ORDER BY created_at DESC""")
                 return [_row_to_record(row) for row in cur.fetchall()]
         except Exception:
+            logger.exception(
+                "[memory] list_all(status=%s) failed — returning []",
+                status,
+            )
             return []
 
     def _audit_stale(self, conn: sqlite3.Connection) -> list[DecisionRecord]:
