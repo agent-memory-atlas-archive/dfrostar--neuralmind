@@ -208,6 +208,7 @@ def test_scan_cascades_to_dependents(git_repo, store):
 
 def test_in_memory_store_records_and_finds():
     from neuralmind.memory.store import DecisionRecord
+
     mem = InMemoryDecisionStore()
     rec = DecisionRecord(
         title="t",
@@ -221,6 +222,7 @@ def test_in_memory_store_records_and_finds():
 
 def test_in_memory_store_finds_dependents():
     from neuralmind.memory.store import DecisionRecord
+
     mem = InMemoryDecisionStore()
     base = DecisionRecord(
         title="base",

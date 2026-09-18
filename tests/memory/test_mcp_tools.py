@@ -6,8 +6,13 @@ import json
 
 import pytest
 
-from neuralmind.memory import mcp_tools
-from neuralmind.memory.mcp_tools import TOOLS, handle_tool_call, tool_audit_decisions, tool_query_decisions, tool_record_decision
+from neuralmind.memory.mcp_tools import (
+    TOOLS,
+    handle_tool_call,
+    tool_audit_decisions,
+    tool_query_decisions,
+    tool_record_decision,
+)
 
 
 @pytest.fixture
@@ -49,7 +54,11 @@ def test_handle_tool_call_unknown_tool():
 
 def test_handle_tool_call_query(project):
     tool_record_decision(project, title="MCP decision", rationale="why", commit_sha="a" * 40)
-    out = json.loads(handle_tool_call("neuralmind_query_decisions", {"project_path": project, "query": "MCP decision"}))
+    out = json.loads(
+        handle_tool_call(
+            "neuralmind_query_decisions", {"project_path": project, "query": "MCP decision"}
+        )
+    )
     assert out["count"] >= 1
     assert any(d["title"] == "MCP decision" for d in out["decisions"])
 
@@ -105,7 +114,6 @@ def test_query_returns_empty_on_fresh_project(tmp_path):
 
 def test_audit_stale_only(project):
     """stale_only uses store.audit() which is age-based; verify plumbing."""
-    from neuralmind.memory.store import DecisionStore
 
     rec = tool_record_decision(project, title="Audit me", rationale="r", commit_sha="c" * 40)
     result = tool_audit_decisions(project, stale_only=True)
@@ -117,11 +125,18 @@ def test_audit_stale_only(project):
 
 
 def test_invalidate_via_mcp_then_query_excludes(project):
-    rec = tool_record_decision(project, title="Invalidated marker ZZ", rationale="r", commit_sha="c" * 40)
+    rec = tool_record_decision(
+        project, title="Invalidated marker ZZ", rationale="r", commit_sha="c" * 40
+    )
     from neuralmind.memory.mcp_tools import tool_invalidate_decision
 
     tool_invalidate_decision(project, rec["id"], reason="test")
-    out = json.loads(handle_tool_call("neuralmind_query_decisions", {"project_path": project, "query": "Invalidated marker ZZ"}))
+    out = json.loads(
+        handle_tool_call(
+            "neuralmind_query_decisions",
+            {"project_path": project, "query": "Invalidated marker ZZ"},
+        )
+    )
     assert out["count"] == 0, "invalidated decisions must not surface in default query"
 
 

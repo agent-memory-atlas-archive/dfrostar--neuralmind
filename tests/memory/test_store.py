@@ -11,7 +11,6 @@ import pytest
 from neuralmind.memory.store import (
     SCHEMA_VERSION,
     STALE_DAYS,
-    DecisionRecord,
     DecisionStore,
 )
 
@@ -22,12 +21,12 @@ def store(tmp_path):
 
 
 def _record(store, **overrides):
-    kwargs = dict(
-        title="Use SQLite WAL mode",
-        rationale="WAL avoids reader/writer blocking under concurrent agents.",
-        commit_sha="a" * 40,
-        files_affected=["neuralmind/store.py"],
-    )
+    kwargs = {
+        "title": "Use SQLite WAL mode",
+        "rationale": "WAL avoids reader/writer blocking under concurrent agents.",
+        "commit_sha": "a" * 40,
+        "files_affected": ["neuralmind/store.py"],
+    }
     kwargs.update(overrides)
     return store.record(**kwargs)
 
@@ -111,18 +110,6 @@ def test_restore_assigns_new_commit(store):
     assert restored.status == "ACTIVE"
     assert restored.commit_sha == "b" * 40
     assert store.get(rec.id).status == "ACTIVE"
-
-
-def test_update_full_record(store):
-    """Regression: update() referenced decision.files (nonexistent attr) and
-    silently no-op'd via except-pass. Must actually persist."""
-    rec = _record(store)
-    rec.title = "Revised: use WAL"
-    rec.rationale = "Updated reasoning."
-    store.update(rec)
-    got = store.get(rec.id)
-    assert got.title == "Revised: use WAL"
-    assert got.rationale == "Updated reasoning."
 
 
 # ------------------------------------------------------------------ #

@@ -38,7 +38,9 @@ def test_full_lifecycle_record_query_invalidate_audit(git_repo):
     store = DecisionStore(str(git_repo))
     sha = subprocess.run(
         ["git", "-C", str(git_repo), "rev-parse", "HEAD"],
-        capture_output=True, text=True, check=True,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout.strip()
 
     # Record
@@ -128,10 +130,9 @@ def test_concurrent_reads_and_writes(tmp_path):
         except Exception as e:  # pragma: no cover
             errors.append(e)
 
-    threads = (
-        [threading.Thread(target=writer, args=(n,)) for n in range(4)]
-        + [threading.Thread(target=reader, args=(n,)) for n in range(6)]
-    )
+    threads = [threading.Thread(target=writer, args=(n,)) for n in range(4)] + [
+        threading.Thread(target=reader, args=(n,)) for n in range(6)
+    ]
     for t in threads:
         t.start()
     for t in threads:

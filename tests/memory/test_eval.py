@@ -33,18 +33,16 @@ def test_run_returns_json_report(project):
     harness = MaintenanceEval(project, task_count=5)
     out = harness.run(output_format="json")
     report = json.loads(out)
-    assert "memory_on" in report or "memory_enabled" in report or "tasks" in report, (
-        "report must expose per-arm or per-task results"
-    )
+    assert (
+        "memory_on" in report or "memory_enabled" in report or "tasks" in report
+    ), "report must expose per-arm or per-task results"
 
 
 def test_run_report_has_both_arms(project):
     harness = MaintenanceEval(project, task_count=5)
     report = json.loads(harness.run(output_format="json"))
     text = json.dumps(report)
-    assert "on" in text.lower() and "off" in text.lower(), (
-        "within-subjects A/B requires both arms"
-    )
+    assert "on" in text.lower() and "off" in text.lower(), "within-subjects A/B requires both arms"
 
 
 def test_seeding_is_deterministic(project):
@@ -53,11 +51,7 @@ def test_seeding_is_deterministic(project):
     r1 = json.loads(h1.run(output_format="json"))
     h2 = MaintenanceEval(project, task_count=5)
     r2 = json.loads(h2.run(output_format="json"))
-    t1 = {t["task_id"] for t in r1.get("tasks", [])} or set(
-        r1.get("task_ids", [])
-    )
-    t2 = {t["task_id"] for t in r2.get("tasks", [])} or set(
-        r2.get("task_ids", [])
-    )
+    t1 = {t["task_id"] for t in r1.get("tasks", [])} or set(r1.get("task_ids", []))
+    t2 = {t["task_id"] for t in r2.get("tasks", [])} or set(r2.get("task_ids", []))
     if t1 and t2:
         assert t1 == t2

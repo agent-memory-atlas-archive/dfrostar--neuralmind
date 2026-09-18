@@ -1260,8 +1260,8 @@ def handle_tool_call(name: str, arguments: dict[str, Any]) -> str:
     # dict results, same contract as the handlers above.
     from neuralmind.memory.mcp_tools import handle_tool_call as memory_handle_tool_call
 
-    _MEMORY_TOOL_NAMES = {t["name"] for t in MEMORY_TOOLS}
-    if name in _MEMORY_TOOL_NAMES:
+    _memory_tool_names = {t["name"] for t in MEMORY_TOOLS}
+    if name in _memory_tool_names:
         handlers[name] = lambda args: json.loads(memory_handle_tool_call(name, args))
 
     if name not in handlers:
