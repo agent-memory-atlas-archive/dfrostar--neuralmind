@@ -374,12 +374,13 @@ class DecisionStore:
             updated_at: Optional explicit timestamp (defaults to now).
         """
         now = datetime.now(timezone.utc)
+        files_affected_norm = [f.replace("\\", "/") for f in (files_affected or [])]
         rec = DecisionRecord(
             id=id or str(uuid.uuid4()),
             title=title,
             rationale=rationale,
             commit_sha=commit_sha,
-            files_affected=list(files_affected or []),
+            files_affected=files_affected_norm,
             decision_type=(
                 decision_type if decision_type in VALID_DECISION_TYPES else DEFAULT_DECISION_TYPE
             ),

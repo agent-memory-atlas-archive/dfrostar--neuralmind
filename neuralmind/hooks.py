@@ -603,9 +603,11 @@ def _stale_decision_context(project_path: str, file_path: str) -> str:
         store = DecisionStore(project_path)
         # Normalize the hook's file path the same way DecisionStore does (backslashes to forward slashes)
         norm_file_path = file_path.replace("\\", "/")
+        # Normalize the project path to forward slashes for consistent comparison
+        norm_project_path = str(Path(project_path)).replace("\\", "/")
         # Try to make it relative to the project root first
         try:
-            rel = str(Path(norm_file_path).relative_to(Path(project_path)))
+            rel = str(Path(norm_file_path).relative_to(Path(norm_project_path)))
         except (ValueError, OSError):
             # If not under project root, use the normalized path as-is
             rel = norm_file_path
@@ -616,7 +618,9 @@ def _stale_decision_context(project_path: str, file_path: str) -> str:
         # If no records found with relative path, try the normalized absolute path
         if not records and rel != norm_file_path:
             records = [
-                r for r in store.find_by_files([norm_file_path], include_invalidated=True) if r.status != "ACTIVE"
+                r
+                for r in store.find_by_files([norm_file_path], include_invalidated=True)
+                if r.status != "ACTIVE"
             ]
         if not records:
             return ""
