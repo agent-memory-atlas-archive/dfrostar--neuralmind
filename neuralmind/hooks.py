@@ -602,9 +602,9 @@ def _stale_decision_context(project_path: str, file_path: str) -> str:
 
         store = DecisionStore(project_path)
         # Normalize the hook's file path the same way DecisionStore does (backslashes to forward slashes)
-        norm_file_path = file_path.replace("\\\\", "/")
+        norm_file_path = file_path.replace("\\", "/")
         # Normalize the project path to forward slashes for consistent comparison
-        norm_project_path = str(Path(project_path)).replace("\\\\", "/")
+        norm_project_path = str(Path(project_path)).replace("\\", "/")
         # Try to make it relative to the project root first
         try:
             rel = str(Path(norm_file_path).relative_to(Path(norm_project_path)))
@@ -612,7 +612,7 @@ def _stale_decision_context(project_path: str, file_path: str) -> str:
             # If not under project root, use the normalized path as-is
             rel = norm_file_path
         # Normalize rel to forward slashes for comparison with stored files_affected
-        rel = rel.replace("\\\\", "/")
+        rel = rel.replace("\\", "/")
 
         records = [
             r for r in store.find_by_files([rel], include_invalidated=True) if r.status != "ACTIVE"
@@ -641,7 +641,7 @@ def _stale_decision_context(project_path: str, file_path: str) -> str:
             )
         if len(records) > 5:
             lines.append(f"- …and {len(records) - 5} more (neuralmind decisions audit)")
-        return "\\n".join(lines)
+        return "\n".join(lines)
     except Exception:
         # Fail-open: a guard failure must never block an edit.
         return ""
