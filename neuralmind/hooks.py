@@ -611,6 +611,8 @@ def _stale_decision_context(project_path: str, file_path: str) -> str:
         except (ValueError, OSError):
             # If not under project root, use the normalized path as-is
             rel = norm_file_path
+        # Normalize rel to forward slashes for comparison with stored files_affected
+        rel = rel.replace("\\\\", "/")
 
         records = [
             r for r in store.find_by_files([rel], include_invalidated=True) if r.status != "ACTIVE"
