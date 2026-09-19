@@ -601,17 +601,23 @@ def _stale_decision_context(project_path: str, file_path: str) -> str:
         from .memory.store import DecisionStore
 
         store = DecisionStore(project_path)
-        # Normalize the hook's file path against the project root so it
-        # matches how files_affected was recorded (repo-relative).
-        rel = file_path
+        # Normalize the hook's file path the same way DecisionStore does (backslashes to forward slashes)
+        norm_file_path = file_path.replace("\\", "/")
+        # Try to make it relative to the project root first
         try:
-            rel = str(Path(file_path).resolve().relative_to(Path(project_path).resolve()))
+            rel = str(Path(norm_file_path).relative_to(Path(project_path)))
         except (ValueError, OSError):
-            rel = file_path
+            # If not under project root, use the normalized path as-is
+            rel = norm_file_path
 
         records = [
             r for r in store.find_by_files([rel], include_invalidated=True) if r.status != "ACTIVE"
         ]
+        # If no records found with relative path, try the normalized absolute path
+        if not records and rel != norm_file_path:
+            records = [
+                r for r in store.find_by_files([norm_file_path], include_invalidated=True) if r.status != "ACTIVE"
+            ]
         if not records:
             return ""
 
