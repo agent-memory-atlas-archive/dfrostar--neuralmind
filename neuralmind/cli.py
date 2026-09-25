@@ -22,6 +22,10 @@ from neuralmind.doc_evolver import BlindSpot, DocEvolver
 from neuralmind.drift import DEFAULT_MAX_FINDINGS
 from neuralmind.metrics_pipeline import MetricsCollector
 from neuralmind.onboarding import cmd_onboarding
+from neuralmind.paths import (
+    graph_json_path,
+    vector_db_path,
+)
 from neuralmind.tier2.config import TIER2_CONFIG_DIR
 from neuralmind.tier2.license import issue_free_license
 
@@ -391,7 +395,7 @@ def _cmd_build_book(args, project_path: str, force: bool) -> None:
 
     # 1. Build code scope (engine code) — skip if no graph.json (pure content book)
     print("   Scope: code... ", end="", flush=True)
-    graph_path = path / "graphify-out" / "graph.json"
+    graph_path = graph_json_path(path)
     if graph_path.exists():
         code_args = argparse.Namespace(
             project_path=project_path,
@@ -613,7 +617,7 @@ def cmd_build(args):
         print(
             "Secret redaction: on — scrubs embedded text (document chunks and "
             "node descriptions).\n"
-            "  Not covered: node labels, graphify-out/graph.json and "
+            "  Not covered: node labels, .neuralmind/graph.json and "
             ".neuralmind/index_ir.json,\n"
             "  which are written before embedding. Remove and rotate the "
             "credential at the source."
@@ -639,7 +643,7 @@ def cmd_build(args):
     # Estimate node count from graph.json directly since embedder.nodes
     # is lazy-loaded only inside build().
     est_nodes = 0
-    graph_path = Path(project_path) / "graphify-out" / "graph.json"
+    graph_path = graph_json_path(project_path)
     if graph_path.exists():
         try:
             est_nodes = len(json.loads(graph_path.read_text(encoding="utf-8")).get("nodes", []))
@@ -867,7 +871,7 @@ def _cmd_query_unified(
     scope_bias = getattr(args, "scope_bias", "balanced")  # balanced, content, code
 
     # Detect available scopes
-    tv_dir = path / "graphify-out" / "neuralmind_turbovec"
+    tv_dir = vector_db_path(path, "turbovec")
     has_code = (tv_dir / "store.code.sqlite").exists()
     has_content = (tv_dir / "store.content.sqlite").exists()
 
@@ -1879,6 +1883,32 @@ def cmd_stats(args):
                 )
 
 
+def cmd_cost(args):
+    """Show cost attribution (modeled savings) from query event logs.
+
+    Reads the JSONL events written by neuralmind.memory and computes a
+    per-repo, per-seat modeled cost savings figure. The baseline is
+    reconstructed from reduction_ratio — this is a modeled estimate,
+    not a measured one.
+    """
+    from neuralmind.cost_attribution import compute_cost_attribution, format_cost_report
+
+    project_path = Path(args.project_path).resolve()
+    days = getattr(args, "days", 30)
+    cost_per_1k = getattr(args, "cost_per_1k_tokens", None)
+
+    attribution = compute_cost_attribution(
+        project_path,
+        days=days,
+        cost_per_1k_tokens=cost_per_1k,
+    )
+
+    if getattr(args, "json", False):
+        print(json.dumps(attribution, indent=2))
+    else:
+        print(format_cost_report(attribution))
+
+
 def cmd_metrics(args):
     """Show aggregated metrics summary from .neuralmind/metrics/ JSONL files.
 
@@ -2094,7 +2124,7 @@ def cmd_project(args):
         search_path = getattr(args, "path", ".")
         print(f"Scanning {search_path} for NeuralMind projects...")
         patterns = [
-            str(Path(search_path) / "**" / "graphify-out" / "graph.json"),
+            str(Path(search_path) / "**" / ".neuralmind" / "graph.json"),
             str(Path(search_path) / "**" / ".neuralmind" / "ir_meta.json"),
         ]
         found = set()
@@ -4207,7 +4237,7 @@ def cmd_daemon(args):
 def cmd_serve(args):
     """Start the local graph-view UI server.
 
-    Builds the index (writes/updates ``graphify-out/neuralmind_db/`` the
+    Builds the index (writes/updates ``.neuralmind/neuralmind_db/`` the
     same way ``neuralmind build`` does), then serves an Obsidian-style
     force-directed graph of the codebase (structural edges + learned
     synapse overlay) with backlinks, local-graph focus, a community
@@ -4264,9 +4294,9 @@ def cmd_demo(args):
         print(f"demo failed: bundled demo data not found ({exc}).", file=sys.stderr)
         sys.exit(1)
 
-    if not (bundle_root / "graphify-out" / "graph.json").is_file():
+    if not (bundle_root / ".neuralmind" / "graph.json").is_file():
         print(
-            "demo failed: bundled demo data is missing graphify-out/graph.json. "
+            "demo failed: bundled demo data is missing .neuralmind/graph.json. "
             "Reinstall neuralmind to restore it.",
             file=sys.stderr,
         )
@@ -5126,7 +5156,7 @@ def _cmd_gaps_structural(args):
     top_k = getattr(args, "top_k", 10)
     as_json = getattr(args, "json", False)
 
-    graph_path = os.path.join(project_path, "graphify-out", "graph.json")
+    graph_path = os.path.join(project_path, ".neuralmind", "graph.json")
     if not os.path.exists(graph_path):
         print("No graph found. Run `neuralmind build` first.")
         return
@@ -5759,6 +5789,27 @@ def main():
     stats_p.add_argument("project_path")
     stats_p.add_argument("--json", "-j", action="store_true")
     stats_p.set_defaults(func=cmd_stats)
+
+    cost_p = subparsers.add_parser(
+        "cost",
+        help="Show cost attribution (modeled savings) from query event logs",
+    )
+    cost_p.add_argument("project_path", nargs="?", default=".")
+    cost_p.add_argument(
+        "--days",
+        "-d",
+        type=int,
+        default=30,
+        help="Analysis window in days (default: 30)",
+    )
+    cost_p.add_argument(
+        "--cost-per-1k-tokens",
+        type=float,
+        default=None,
+        help="Cost model: dollars per 1K tokens (default: $0.01, override via NEURALMIND_COST_PER_1K_TOKENS)",
+    )
+    cost_p.add_argument("--json", "-j", action="store_true")
+    cost_p.set_defaults(func=cmd_cost)
 
     # health command — lightweight health check for CI/CD
     health_p = subparsers.add_parser(
@@ -6807,6 +6858,8 @@ def main():
             "prompt-submit",
             "pre-compact",
             "stale-guard",
+            "stop",
+            "session-end",
         ],
     )
     hook_p.set_defaults(func=cmd_hook)
