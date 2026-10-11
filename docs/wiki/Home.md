@@ -37,6 +37,16 @@ their LLM-agent loop. Full numbers and reproduction commands on the
 
 ## What's New
 
+### v4.12.1 — `doctor` exits 1 on a failed check; examples rank below code (October 2026)
+
+`neuralmind doctor` exits 1 again when a check fails, as documented (v0.55.0
+through v4.12.0 always exited 0), and a leftover `index.tvim.stale` backup no
+longer fails it once the index is rebuilt. Example scripts (`examples/`,
+`demos/`, `samples/`) now rank below the code they demonstrate, as test files
+have since v4.12.0, unless the question asks for an example
+(`NEURALMIND_EXAMPLE_FILE_FACTOR=1` turns it off). See the
+[release notes](https://github.com/dfrostar/neuralmind/blob/main/docs/releases/RELEASE_NOTES_v4.12.1.md).
+
 ### v4.12.0 — Retrieval that keeps what vector search finds (October 2026)
 
 On the public benchmark, NeuralMind's own vector index alone — top 8, nothing
