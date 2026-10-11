@@ -101,6 +101,9 @@ keywords = [
     "synapse-ab-test",
     "learned-recall-evaluation",
     "incident-replay-eval",
+    "nist-ssdf",
+    "sigstore-signed",
+    "openvex",
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",

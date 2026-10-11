@@ -1,6 +1,6 @@
-# NeuralMind v4.14.0 — measure whether the synapse layer helps on your own repo, Hermes reads that train transitions, and public pages that say what isn't measured
+# NeuralMind v4.14.0 — measure whether the synapse layer helps on your own repo, and releases you can verify
 
-**Type:** Minor release | **Theme:** check the learning instead of taking it on trust
+**Type:** Minor release | **Themes:** check the learning instead of taking it on trust; check that the NeuralMind you install is the one this repository built
 
 A field user put NeuralMind to an adversarial review. The retrieval demos
 showed the right symbols coming back, but nothing showed the synapse layer
@@ -9,6 +9,15 @@ two months. That was a fair hit. The CI synapse gate is directional and runs on
 a ~500-line fixture; nothing published shows the layer paying off on a real
 codebase. This release adds the measurement, closes one of the reasons a store
 stays at 0 transitions, and makes the public pages say what is and isn't shown.
+
+NIST doesn't certify software against its Secure Software Development
+Framework (SP 800-218). A US federal agency buying software asks the producer
+to attest to it on CISA's Secure Software Development Attestation Form, signed
+by an officer of the company. Until now the repository was missing parts of
+the evidence behind that signature. Releases weren't signed or attested,
+nothing scanned the code or the installed dependencies on each change, and the
+"not affected" decisions on dependency advisories existed only as prose in
+SECURITY.md. This release adds that evidence.
 
 ---
 
@@ -74,6 +83,58 @@ stays at 0 transitions, and makes the public pages say what is and isn't shown.
   `tests/test_site_claims.py` recomputes the ripgrep range and found count from
   `bench/public/results.json`.
 
+### Releases you can verify (NIST SP 800-218)
+
+- **Container images are signed.** Each `ghcr.io/dfrostar/neuralmind` image is
+  signed with cosign by the release workflow. The signing is keyless: the
+  signature is bound to the workflow's GitHub OIDC identity and recorded in
+  Sigstore's public transparency log, so there's no signing key to hold or
+  leak.
+- **Every artifact carries build provenance.** The image, the wheel and the
+  sdist get GitHub build-provenance attestations naming the workflow, commit
+  and runner that built them. PyPI already received PEP 740 attestations from
+  trusted publishing.
+- **The release checks itself.** Before `:latest` moves, the release workflow
+  runs the same `cosign verify` and `gh attestation verify` commands it
+  documents. An image that doesn't verify never becomes the default pull.
+
+### Scanning on every change
+
+- **bandit** runs on the package. High severity fails the change, and the full
+  report goes to the repository's code scanning alongside CodeQL. The one
+  high-severity exception is the SHA-256-pinned model archive's extraction,
+  marked `# nosec B202` with its reason.
+- **pip-audit** audits what users install, meaning the default install plus
+  the `chromadb` extra, in its own environment. Any advisory fails the change
+  unless the VEX document below marks it not affected.
+
+### Dependency decisions as data (VEX)
+
+- **`security/neuralmind.openvex.json`** records, in OpenVEX, the four
+  ChromaDB advisories SECURITY.md has argued are unreachable. ChromaDB is an
+  opt-in extra, and NeuralMind uses only its local `PersistentClient`. Give it
+  to a VEX-aware scanner (Grype or Trivy `--vex`) with the release SBOM, and
+  those advisories show as not affected rather than open.
+- The CI gate ignores exactly what the VEX lists (`scripts/vex_ignores.py`),
+  so the published decision and the gate can't disagree.
+  `tests/test_vex.py` fails if an entry isn't argued in SECURITY.md or drifts
+  from the advisories `chromadb-cve-watch.yml` watches.
+
+### The SSDF mapping
+
+- **[`docs/compliance/SSDF.md`](../compliance/SSDF.md)** maps every SP 800-218
+  practice (PO, PS, PW, RV) to the evidence in the repository. It also says
+  which parts a repository can't show, such as account 2FA and repository
+  settings, which the attesting officer confirms directly.
+
+### Where NeuralMind stands on NIST, in one place
+
+- **[`docs/compliance/NIST.md`](../compliance/NIST.md)** says which NIST
+  documents apply to which buyer, where NeuralMind stands on each (FIPS 140-3,
+  SP 800-218, SP 800-171/CMMC, SP 800-53, the AI RMF), what's planned next,
+  and what stays yours. NIST doesn't certify software; the page says what each
+  buyer actually asks for.
+
 ## What the agent actually sees
 
 Nothing changes in hook output, MCP tools or response fields. An agent, or the
@@ -81,6 +142,9 @@ person running it, can check the synapse layer instead of trusting it:
 `neuralmind eval . --synapse-ab --json` returns the on and off metrics side by
 side. Under Hermes, a session that only reads files now builds transitions, so
 `neuralmind next` has something to say about what usually follows.
+
+The release-signing, scanning and VEX changes add nothing at runtime: they
+change how NeuralMind is built and published, not how it runs.
 
 ## Per-agent expectations
 
@@ -99,6 +163,14 @@ side. Under Hermes, a session that only reads files now builds transitions, so
   NeuralMind process, as each edit already did. The plugin is a copy, so after
   `pip install -U neuralmind` re-run `neuralmind install-hermes-plugin` to pick
   it up.
+- The release-signing, scanning and VEX changes need no action, and there is
+  no index format change.
+- To verify what you installed, see
+  [SSDF.md §2](../compliance/SSDF.md#2-how-to-verify-a-release-yourself).
+  Releases before v4.14.0 have no signature or attestations to verify.
+- Air-gapped installs can verify the wheel's provenance on the connected
+  machine before transfer; see the
+  [air-gapped walkthrough](../use-cases/air-gapped.md).
 
 ## Reproduce
 
@@ -107,6 +179,22 @@ pytest tests/test_measurement_v450.py -k "synapse_ab or SynapseAB" -v
 pytest tests/test_hermes_plugin.py -k read -v
 pytest tests/test_hooks.py -k read_activity -v
 pytest tests/test_site_claims.py -v
+
+pytest tests/test_vex.py -v
+
+# The CI gates, locally
+pip install bandit pip-audit
+bandit -q -r neuralmind --severity-level high
+python -m venv /tmp/audit && /tmp/audit/bin/pip install -e ".[chromadb]"
+PIPAPI_PYTHON_LOCATION=/tmp/audit/bin/python \
+  pip-audit --skip-editable $(python scripts/vex_ignores.py)
+
+# A published image (v4.14.0 and later)
+cosign verify ghcr.io/dfrostar/neuralmind:v4.14.0 \
+  --certificate-identity-regexp '^https://github\.com/dfrostar/neuralmind/\.github/workflows/docker-publish\.yml@refs/(heads/main|tags/v[0-9]+\.[0-9]+\.[0-9]+)$' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+gh attestation verify oci://ghcr.io/dfrostar/neuralmind:v4.14.0 --repo dfrostar/neuralmind \
+  --cert-identity-regex '^https://github\.com/dfrostar/neuralmind/\.github/workflows/docker-publish\.yml@refs/(heads/main|tags/v[0-9]+\.[0-9]+\.[0-9]+)$'
 ```
 
 ## Related
@@ -115,3 +203,8 @@ pytest tests/test_site_claims.py -v
 - [Measure retrieval on your own repo](../use-cases/measure-retrieval-on-your-repo.md)
 - [CLI reference: `eval`](../wiki/CLI-Reference.md)
 - [The public benchmark](../benchmarks/public.md)
+- [Secure Software Development (SSDF) evidence](../compliance/SSDF.md)
+- [Compliance Summary](../COMPLIANCE-SUMMARY.md)
+- [Vulnerability Management Policy](../VULNERABILITY-MANAGEMENT-POLICY.md)
+- [SECURITY.md — Verifying a Release](../../SECURITY.md#verifying-a-release)
+- [NIST: what applies, where it stands, what's next](../compliance/NIST.md)

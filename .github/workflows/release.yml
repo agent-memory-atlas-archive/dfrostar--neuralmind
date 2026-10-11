@@ -20,6 +20,11 @@ on:
 env:
   RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
+# Read-only token by default; a job that needs more declares its own
+# permissions: block, which replaces this one for that job.
+permissions:
+  contents: read
+
 jobs:
   validate-version:
     name: Validate Tag vs Package Version
@@ -65,6 +70,10 @@ jobs:
     needs: smoke-test
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write       # signs the provenance attestation below
+      attestations: write
     steps:
       - uses: actions/checkout@v7
         with:
@@ -93,6 +102,19 @@ jobs:
           # rather than upgrading to latest to keep releases reproducible.
           pip install twine "packaging>=26"
           twine check dist/*
+
+      # NIST SP 800-218 (SSDF) PS.2 / PS.3: a signed statement of which
+      # workflow, commit and runner built each file, so anyone can check that
+      # a wheel or sdist came from this repository's release:
+      #   gh attestation verify neuralmind-X.Y.Z-py3-none-any.whl --repo dfrostar/neuralmind \
+      #     --cert-identity-regex '^https://github\.com/dfrostar/neuralmind/\.github/workflows/release\.yml@refs/(heads/main|tags/v[0-9]+\.[0-9]+\.[0-9]+)$'
+      # The regex pins the ref: main (release-please dispatches without --ref)
+      # or a vX.Y.Z tag, so an attestation from another branch's run fails.
+      # PyPI also gets PEP 740 attestations from trusted publishing below.
+      - name: Attest build provenance (wheel + sdist)
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: 'dist/*'
 
       - name: Store build artifacts
         uses: actions/upload-artifact@v7
