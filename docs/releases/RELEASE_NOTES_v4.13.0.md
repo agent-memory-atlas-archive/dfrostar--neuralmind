@@ -121,6 +121,21 @@ repository was no longer read. This release closes three of those gaps.
   which learns from edits but doesn't re-index them, so anyone following it kept
   a drifting index.
 
+### FIPS-mode hosts
+
+- **Document ingestion works with the OS FIPS mode on.** It hashed a
+  file's parent directory with a bare `hashlib.md5()` to build node ids, and a
+  FIPS-mode OpenSSL refuses MD5, so `neuralmind ingest`, `ingest-content`,
+  book builds and the `neuralmind_ingest_document` MCP tool failed with
+  `UnsupportedDigestmodError` on the hosts the CMMC walkthrough tells you to
+  configure. The call now passes `usedforsecurity=False` (it's an id, not a
+  security control), and so does a SHA-1 sort key in the L3 slot ranking.
+  Node ids are unchanged, so no rebuild is needed.
+- **CI runs the test suite with the OpenSSL FIPS provider enforced**
+  (`scripts/setup_fips_openssl.sh`), and `tests/test_fips_hash_usage.py` fails
+  any MD5, SHA-1 or BLAKE2 call in the repo that doesn't say it's not for
+  security.
+
 ## What the agent actually sees
 
 The index an agent queries matches the checked-out tree after a pull, branch
@@ -191,6 +206,12 @@ pytest tests/test_usage_metrics.py tests/test_metrics.py tests/test_mcp_security
 pytest tests/test_index_freshness.py -k "graphify or StaleAfter or Health" -v
 pytest tests/test_cli_exit_codes.py -v
 python scripts/mcp_stdio_smoke.py
+
+# FIPS-mode hosts: the static check, then the whole suite under the provider
+pytest tests/test_fips_hash_usage.py -v
+bash scripts/setup_fips_openssl.sh ~/.cache/openssl-fips
+OPENSSL_CONF=~/.cache/openssl-fips/openssl-fips.cnf \
+  OPENSSL_MODULES=~/.cache/openssl-fips pytest tests/
 ```
 
 The end-to-end tests drive real git with a fake `neuralmind` that records its
