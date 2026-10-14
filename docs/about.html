@@ -208,6 +208,12 @@
                 <li><strong>No LLM documentation seeding</strong> &mdash; refused even with <code>NEURALMIND_LLM_SEED=1</code> set</li>
                 <li><strong>Audited and checked as a unit</strong> &mdash; each refusal is a <code>profile_refused</code> audit event, and <code>neuralmind doctor</code> fails the project when the OS FIPS mode is off (CMMC SC.L2-3.13.11)</li>
             </ul>
+            <p><strong>Also: exit codes the Team commands computed and the CLI threw away.</strong> <code>neuralmind team license activate</code> on an expired license printed &ldquo;EXPIRED. Nothing was installed.&rdquo; and exited 0, and so did every other <code>team</code> and <code>onboarding</code> failure: each command returned its exit code, and <code>neuralmind</code> ignored it. The CLI reference had documented one of them, a non-admin <code>team governance remove-edge</code>, as exit 1 since v4.6.0. Every other command&rsquo;s exit status is unchanged.</p>
+            <ul>
+                <li><strong>Exit 1 on failure</strong> &mdash; a license that doesn&rsquo;t validate, no usable license, a non-admin, a seat limit, an unknown seat, a broken audit chain, a data dir that can&rsquo;t be created, a declined license agreement. A provisioning script under <code>set -e</code> now stops there</li>
+                <li><strong>Exit 2 for a partial seat sync</strong> &mdash; <code>team seats sync</code> when the license&rsquo;s seat limit refused some of the manifest&rsquo;s seats</li>
+                <li><strong>Status commands still exit 0</strong> &mdash; <code>team license status</code> and <code>portal</code>, <code>team self-hosted status</code> and <code>validate-license</code> report the license&rsquo;s state in their output</li>
+            </ul>
             <p>Full details: <a href="https://github.com/dfrostar/neuralmind/blob/main/docs/releases/RELEASE_NOTES_v4.16.0.md">v4.16.0 release notes</a> &middot; <a href="https://github.com/dfrostar/neuralmind/blob/main/docs/use-cases/cmmc-cui-enclave.md">CUI enclave walkthrough</a></p>
         </div>
     </section>
