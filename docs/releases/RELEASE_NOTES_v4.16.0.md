@@ -131,13 +131,71 @@ nowhere. Found on 2026-10-12 while activating an expired license.
   license; the [team-memory governance walkthrough](../use-cases/govern-team-memory.md)
   alerts on a broken audit chain.
 
+### Also: a `Decision:` trailer can be retracted, and goes STALE with its code
+
+Each prompt (Claude Code's `UserPromptSubmit` hook, the Hermes plugin's
+`pre_llm_call`) gets the `Decision:` git trailers whose subjects it mentions.
+A trailer is committed history, so it couldn't be changed: a decision that was
+later reversed kept arriving with every matching prompt, for as long as its
+commit stayed in the last 300, and nothing could retract it. The decision
+store (`neuralmind decisions`) had ACTIVE, STALE and INVALIDATED, but the
+prompt hooks never read it.
+
+- **`neuralmind decisions scan` imports trailers into the decision store.**
+  The post-commit hook from `neuralmind init-hook` runs it after every commit
+  in a project with a decision store and, in a built project without one, on
+  the first commit that carries a trailer (a `git log` + `grep` check, so
+  other commits start no Python). Each trailer in the same 300 commits is
+  recorded once, tagged `trailer`, anchored to its commit, naming the files
+  its commit changed (diffed against the first parent, as the scan diffs
+  HEAD). It is judged against the code its own commit stored, not your
+  working tree: one whose files changed after its commit comes in STALE,
+  with the files named; the rest come in ACTIVE. Its id is derived from the
+  rationale, so a rebase that rewrites the commit keeps the same decision,
+  and amending the trailer's commit, or committing the same rationale again,
+  re-anchors it to the new commit instead of marking it STALE. `--json` gains
+  an `imported` list.
+- **The prompt hooks and `neuralmind why` read the store's status.** An
+  INVALIDATED trailer is left out. A STALE one is still shown, marked
+  `[STALE: its code changed after this was decided; check it still holds]`.
+  A trailer the store doesn't hold is shown as before. The hooks only read
+  the store; they never create one.
+- **So a trailer has the same lifecycle as a recorded decision:**
+  `decisions invalidate <id> --reason R` retracts it, a later commit that
+  changes its files marks it STALE, `decisions restore <id>` brings it back,
+  and the `PreToolUse` stale-decision guard names it before an edit. Find the
+  id with `neuralmind decisions query <words> --status ALL`, which now prints
+  each decision's `ID:` (without `--status`, query lists only ACTIVE
+  decisions). Importing again never revives an invalidated trailer.
+- **The status is local to your clone.** It lives in `.neuralmind/memory.db`,
+  which isn't committed: a teammate, a fresh clone or CI still gets a trailer
+  you invalidated, and STALE follows the commits made in this working tree,
+  whatever the branch.
+- **Windows: non-ASCII rationales and paths are read correctly.** git's
+  output was decoded with the locale encoding (cp1252 on Windows), which
+  garbled a non-ASCII `Decision:` rationale, and with it the id derived from
+  it, and garbled non-ASCII paths, so a decision naming such a file never went
+  STALE, imported or recorded. Both are now read as UTF-8, which is what git
+  writes; Linux and macOS, whose locale is UTF-8, see no change.
+- **Tests:** `tests/memory/test_trailer_lifecycle.py` drives a real git
+  repository through import, invalidate, a later commit, restore and `why`;
+  `tests/test_provenance.py` covers the status rules.
+
 ## What the agent actually sees
 
-Without the profile, one thing changes: a `neuralmind team …` or
-`neuralmind onboarding` command an agent runs as a shell command now exits 1
-(2 for a partial `seats sync`) when it fails, with the same message as
-before. Before, the tool call reported success while the output said
-nothing was installed.
+Without the profile, two things change:
+- A `neuralmind team …` or `neuralmind onboarding` command an agent runs as a
+  shell command now exits 1 (2 for a partial `seats sync`) when it fails, with
+  the same message as before. Before, the tool call reported success while the
+  output said nothing was installed.
+- The `## NeuralMind decision provenance` block a prompt gets leaves out the
+  trailers you invalidated and marks the STALE ones:
+
+```
+## NeuralMind decision provenance
+
+- `upload_with_retry`: keeps retries in the uploader, not the HTTP client. (see commit 3f9c2ab) [STALE: its code changed after this was decided; check it still holds]
+```
 
 Under `profile: cui`:
 - MCP tool calls behave as they already did with `identity: os` and
@@ -157,8 +215,11 @@ Under `profile: cui`:
 | Hermes-Agent plugin | Same hook behaviour as Claude Code |
 | Generic MCP client | Same as Cursor |
 
-Outside the profile, every agent sees only the `team` / `onboarding` exit
-status above. No MCP tool or hook runs those commands.
+Outside the profile, every agent sees the `team` / `onboarding` exit status
+above (no MCP tool or hook runs those commands), and Claude Code and the
+Hermes plugin see the decision lifecycle in each prompt's decision block.
+Cursor, Cline, Continue and generic MCP clients get no decision block from
+NeuralMind's hooks, so nothing changes for them there.
 
 ## Upgrading
 
@@ -175,6 +236,16 @@ status above. No MCP tool or hook runs those commands.
   profile line.
 - **If a script runs `neuralmind serve --host 0.0.0.0` for a CUI project,**
   it now exits 1. Use an SSH tunnel to `127.0.0.1` instead.
+- **`neuralmind decisions scan` creates `.neuralmind/memory.db` in a project
+  whose recent commits carry `Decision:` trailers,** where it used to skip a
+  project without a store. A project with neither is still left alone, and
+  `NEURALMIND_DECISION_SCAN=0` still skips the scan, imports included. Run
+  `neuralmind decisions scan .` once to import the trailers already in your
+  history.
+- **Re-run `neuralmind init-hook .`** to get the new post-commit hook. A hook
+  installed before v4.16.0 runs the scan only where a decision store already
+  exists, so in a project without one, new trailers wait until you run
+  `neuralmind decisions scan .` yourself.
 
 ## Not in this release
 
@@ -192,6 +263,7 @@ See [NIST.md §3](../compliance/NIST.md#3-whats-next).
 pytest tests/test_security_profile.py -v
 pytest tests/test_cli_exit_codes.py -k serve-refused -v
 pytest tests/test_cli_exit_codes.py -k team_exit -v   # the team / onboarding rows
+pytest tests/memory/test_trailer_lifecycle.py tests/test_provenance.py -v   # trailer lifecycle
 
 printf 'security:\n  profile: cui\n' > neuralmind-backend.yaml
 neuralmind serve . --host 0.0.0.0; echo "exit $?"   # serve refused … exit 1

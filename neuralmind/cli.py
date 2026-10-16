@@ -3429,6 +3429,7 @@ def cmd_decisions_query(args):
     print()
     for i, d in enumerate(results, 1):
         print(f"{i}. [{d.status}] {d.title}")
+        print(f"   ID: {d.id}")
         print(f"   Commit: {d.commit_sha}")
         if d.files_affected:
             print(f"   Files: {', '.join(d.files_affected)}")
@@ -3565,8 +3566,10 @@ def cmd_decisions_scan(args):
     Runs the InvalidationEngine over the HEAD commit. The post-commit hook
     installed by ``neuralmind init-hook`` calls ``decisions scan . --quiet``
     after every commit, so the PreToolUse stale-decision guard sees what went
-    stale without anyone running ``decisions invalidate`` by hand. A project
-    with no decision store is left alone (none is created). Opt-out:
+    stale without anyone running ``decisions invalidate`` by hand. First it
+    imports the ``Decision:`` trailers in recent history into the store, so
+    they get the same lifecycle. A project with no decision store and no
+    trailers is left alone (none is created). Opt-out:
     NEURALMIND_DECISION_SCAN=0. Always exits 0 — a git hook must never fail
     the commit it follows.
     """
@@ -3574,30 +3577,64 @@ def cmd_decisions_scan(args):
     quiet = bool(getattr(args, "quiet", False))
     as_json = bool(getattr(args, "json", False))
     db = project / ".neuralmind" / "memory.db"
-    if os.environ.get("NEURALMIND_DECISION_SCAN") == "0" or not db.exists():
+    disabled = os.environ.get("NEURALMIND_DECISION_SCAN") == "0"
+    trailers = []
+    if not disabled:
+        from neuralmind.provenance import harvest
+
+        # The same window of history the prompt hooks recall from.
+        trailers = harvest(str(project))
+    if disabled or not (db.exists() or trailers):
         if as_json:
-            print(json.dumps({"commit": "", "stale": []}))
+            print(json.dumps({"commit": "", "stale": [], "imported": []}))
         elif not quiet:
-            why = (
-                "disabled (NEURALMIND_DECISION_SCAN=0)" if db.exists() else "no decisions recorded"
-            )
+            why = "disabled (NEURALMIND_DECISION_SCAN=0)" if disabled else "no decisions recorded"
             print(f"Decision scan skipped: {why}.")
         return
 
     from neuralmind.memory.invalidate import InvalidationEngine, get_current_commit
+    from neuralmind.provenance import import_trailers
 
-    store = _get_decisions_store(project)
+    try:
+        store = _get_decisions_store(project)
+    except Exception as exc:  # e.g. a storage policy refusing this disk
+        if as_json:
+            print(json.dumps({"commit": "", "stale": [], "imported": []}))
+        elif not quiet:
+            print(f"Decision scan skipped: {exc}", file=sys.stderr)
+        return
+    head = get_current_commit(project)
+    # Decision: trailers join the store first, so they can be invalidated,
+    # restored, and marked STALE below like any recorded decision.
+    try:
+        imported = import_trailers(store, str(project), trailers, head=head)
+    except Exception as exc:  # never fail the commit this follows
+        imported = []
+        if not quiet:
+            print(f"Importing Decision: trailers failed: {exc}", file=sys.stderr)
+    if imported and not as_json:
+        # A trailer whose files changed after its commit comes in STALE.
+        late = [i for i in imported if (r := store.get(i)) is not None and r.status == "STALE"]
+        if not quiet:
+            note = f" ({len(late)} STALE: their files changed after their commit)" if late else ""
+            print(f"Imported {len(imported)} Decision: trailer(s) into the decision store{note}.")
+        elif late:
+            print(
+                f"[neuralmind] {len(late)} imported Decision: trailer(s) marked STALE: their "
+                "files changed after their commit. Review: neuralmind decisions audit --stale"
+            )
     engine = InvalidationEngine(str(project), store)
     try:
         stale_ids = engine.scan()
     except Exception as exc:  # never fail the commit this follows
-        if not quiet:
+        if as_json:
+            print(json.dumps({"commit": head, "stale": [], "imported": imported}))
+        elif not quiet:
             print(f"Decision scan failed: {exc}", file=sys.stderr)
         return
-    head = get_current_commit(project)
     if not head:
         if as_json:
-            print(json.dumps({"commit": "", "stale": []}))
+            print(json.dumps({"commit": "", "stale": [], "imported": imported}))
         elif not quiet:
             print("Decision scan skipped: not a git repository with commits.")
         return
@@ -3613,7 +3650,7 @@ def cmd_decisions_scan(args):
             }
         )
     if as_json:
-        print(json.dumps({"commit": head, "stale": stale}, indent=2))
+        print(json.dumps({"commit": head, "stale": stale, "imported": imported}, indent=2))
         return
     if not stale:
         if not quiet:
@@ -6263,15 +6300,16 @@ def cmd_why(args):
 
     Harvests ``Decision:`` trailers from git history and surfaces the ones
     whose subjects the query mentions — the rationale that would otherwise
-    live only in a human's head.
+    live only in a human's head. Decisions the decision store holds as
+    INVALIDATED are left out, as in the prompt hooks.
     """
-    from .provenance import format_decisions, harvest, recall
+    from .provenance import format_decisions, harvest, recall, with_lifecycle
 
     project_path = getattr(args, "project_path", ".")
-    records = harvest(project_path)
-    hits = recall(records, args.query)
+    harvested = harvest(project_path)
+    hits = recall(with_lifecycle(project_path, harvested), args.query)
     if not hits:
-        if not records:
+        if not harvested:
             print("No decisions recorded yet.")
             print("Capture one by adding a 'Decision:' trailer to a commit message, e.g.:")
             print("  Decision: resolveOrgId is per-handler — avoids Prisma on /health.")
@@ -6279,6 +6317,11 @@ def cmd_why(args):
             print(f"No recorded decisions match {args.query!r}.")
         return
     print(format_decisions(hits))
+    print()
+    print(
+        "Retract one: neuralmind decisions invalidate <id> --reason R "
+        "(ids: neuralmind decisions query <words> --status ALL, after neuralmind decisions scan)"
+    )
 
 
 def _splice_hook_block(existing: str, block: str) -> tuple[str, str]:
@@ -6498,8 +6541,18 @@ def _post_commit_block(target: str, bin_path: str, sync: bool) -> str:
         "# Retire decisions this commit made stale, then rebuild the NeuralMind index.\n"
         + _HOOK_SCOPE_COMMENT
         + _hook_resolve_binary_lines(bin_path)
-        # The scan's own precondition: no decision store, nothing to scan.
-        + f'if [ -n "$_nm_bin" ] && [ -f {target}/.neuralmind/memory.db ]; then\n'
+        # The scan's own precondition: a decision store to scan, or, in a built
+        # project without one, a commit carrying a Decision: trailer for the
+        # scan to import (which creates the store). Checked with git and grep,
+        # so a commit with neither starts no Python.
+        + "_nm_scan=\n"
+        + f"if [ -f {target}/.neuralmind/memory.db ]; then\n"
+        + "    _nm_scan=1\n"
+        + f"elif [ -f {target}/{_BUILT_MARKER} ] && "
+        + "git log -1 --format=%B 2>/dev/null | grep -qi '^decision:'; then\n"
+        + "    _nm_scan=1\n"
+        + "fi\n"
+        + 'if [ -n "$_nm_bin" ] && [ -n "$_nm_scan" ]; then\n'
         + f'    "$_nm_bin" decisions scan {target} --quiet || true\n'
         + "fi\n"
         + f'if [ -n "$_nm_bin" ] && [ -f {target}/{_BUILT_MARKER} ]; then\n'

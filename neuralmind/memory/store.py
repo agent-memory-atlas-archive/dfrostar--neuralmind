@@ -397,6 +397,36 @@ class DecisionSearch:
 
 # --------------------------------------------------------------------------- #
 # DecisionStore
+def read_statuses(project_path: str | Path, decision_ids: list[str]) -> dict[str, str]:
+    """``{id: status}`` for the given ids that the project's store holds.
+
+    For the prompt hooks, which must not create a store: a project without
+    ``.neuralmind/memory.db`` gets ``{}``, and so does any read error (logged),
+    so a caller falls back to what it would show without a store.
+    """
+    db_path = Path(project_path) / ".neuralmind" / "memory.db"
+    ids = list(dict.fromkeys(decision_ids))
+    if not ids or not db_path.is_file():
+        return {}
+    statuses: dict[str, str] = {}
+    try:
+        conn = sqlite3.connect(db_path, timeout=5.0)
+        try:
+            for start in range(0, len(ids), 500):
+                chunk = ids[start : start + 500]
+                marks = ",".join("?" * len(chunk))
+                rows = conn.execute(
+                    f"SELECT id, status FROM decisions WHERE id IN ({marks})", chunk
+                ).fetchall()
+                statuses.update({row[0]: row[1] for row in rows})
+        finally:
+            conn.close()
+    except Exception:
+        logger.debug("[memory] read_statuses failed for %s", db_path, exc_info=True)
+        return {}
+    return statuses
+
+
 # --------------------------------------------------------------------------- #
 
 
@@ -790,20 +820,26 @@ class DecisionStore:
         try:
             from .invalidate import file_blob_ids
 
-            blobs = file_blob_ids(self.project_path, files)
-            with self._connect() as conn:
-                conn.execute(
-                    "DELETE FROM decision_fingerprints WHERE decision_id = ?", (decision_id,)
-                )
-                conn.executemany(
-                    "INSERT INTO decision_fingerprints(decision_id, path, blob) VALUES (?, ?, ?)",
-                    [(decision_id, path, blob) for path, blob in blobs.items()],
-                )
+            self.set_fingerprints(decision_id, file_blob_ids(self.project_path, files))
         except Exception:
             logger.warning(
                 "[memory] could not fingerprint files for decision %s — the commit that "
                 "carries it will mark it STALE",
                 decision_id,
+            )
+
+    def set_fingerprints(self, decision_id: str, blobs: dict[str, str]) -> None:
+        """Replace a decision's fingerprints with ``{project-relative path: blob id}``.
+
+        For a decision whose code is a commit rather than the working tree: an
+        imported ``Decision:`` trailer is fingerprinted with the blobs its own
+        commit stores. Raises on a database error.
+        """
+        with self._connect() as conn:
+            conn.execute("DELETE FROM decision_fingerprints WHERE decision_id = ?", (decision_id,))
+            conn.executemany(
+                "INSERT INTO decision_fingerprints(decision_id, path, blob) VALUES (?, ?, ?)",
+                [(decision_id, path, blob) for path, blob in blobs.items()],
             )
 
     def fingerprints(self, decision_id: str) -> dict[str, str]:
