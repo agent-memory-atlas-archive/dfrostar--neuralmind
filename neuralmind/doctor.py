@@ -851,6 +851,53 @@ def _check_audit_checkpoints(project: Path) -> Check:
     )
 
 
+def _check_audit_writes(project: Path) -> Check:
+    """Whether any audit record failed to be written, and the log doesn't say so.
+
+    Every caller swallows a failed append so auditing never blocks a query or
+    a build, and the audit trail notes each one in
+    ``.neuralmind/audit_write_failures.jsonl``. ``neuralmind audit record-gap``
+    records them in the log itself; until then this fails under
+    ``security.profile: cui``, where a complete audit log is a control, and
+    warns otherwise.
+    """
+    from neuralmind.audit import AuditTrail
+    from neuralmind.security_config import PROFILE_CUI, load_security_settings
+
+    name = "Audit log writes"
+    trail = AuditTrail(project)
+    status = FAIL if load_security_settings(project).profile == PROFILE_CUI else WARN
+    try:
+        notes = trail.failure_notes()
+        lines = trail.unrecorded_failures(notes)
+    except OSError as exc:
+        # Unreadable notes may hide unrecorded failures: no better than seeing them.
+        return Check(name, status, f"can't read {trail.failures_file}: {exc}")
+    if not lines:
+        if notes:
+            return Check(
+                name, OK, f"{len(notes)} failed audit write(s), all recorded in the log as gaps"
+            )
+        return Check(name, OK, "no failed audit writes recorded")
+    try:
+        last = json.loads(lines[-1])
+    except ValueError:
+        last = None
+    if not isinstance(last, dict):
+        last = {}
+    return Check(
+        name,
+        status,
+        f"{len(lines)} audit record(s) couldn't be written, so the log is missing them; "
+        f"the last, {last.get('event', '?')} at {last.get('timestamp', '?')}: "
+        f"{last.get('error', '?')}",
+        fix=(
+            "Fix the cause (disk space, permissions on .neuralmind/), then record the gap "
+            f"in the log: neuralmind audit record-gap {project}"
+        ),
+    )
+
+
 def _running_daemon_exposure() -> str | None:
     """Why the running daemon, if any, would refuse a CUI project, or None."""
     try:
@@ -902,6 +949,7 @@ def run_diagnostics(project_path: str, stale_after: float | None = None) -> list
         _check_storage_encryption(project),
         _check_security_profile(project),
         _check_audit_checkpoints(project),
+        _check_audit_writes(project),
     ]
 
 

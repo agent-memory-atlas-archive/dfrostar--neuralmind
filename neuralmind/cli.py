@@ -2614,6 +2614,41 @@ def cmd_project(args):
         sys.exit(1)
 
 
+def cmd_data_locations(args):
+    """List every place NeuralMind keeps data for a project (read-only).
+
+    The data deletion procedure runs it before deleting and again after:
+    each location is resolved by the code that writes it.
+    """
+    from neuralmind.data_locations import INTEGRATION, OUTSIDE, PROJECT, data_locations
+
+    root = Path(args.project_path).resolve()
+    locations = data_locations(root)
+    if args.json:
+        payload = {"project": str(root), "locations": [loc.to_dict() for loc in locations]}
+        print(json.dumps(payload, indent=2))
+        return
+    print(f"NeuralMind data for {root}")
+    for kind in (PROJECT, OUTSIDE, INTEGRATION):
+        print()
+        print(f"{kind[0].upper()}{kind[1:]}:")
+        for loc in (loc for loc in locations if loc.kind == kind):
+            mark = "present" if loc.present else "absent "
+            print(f"  [{mark}] {loc.name}: {loc.path}")
+            if loc.present:
+                detail = f" ({loc.detail})" if loc.detail else ""
+                print(f"            holds: {loc.holds}{detail}")
+                print(f"            remove: {loc.remove}")
+            if loc.problem:
+                print(f"            problem: {loc.problem}")
+    present = sum(loc.present for loc in locations)
+    print()
+    print(f"{present} of {len(locations)} present. See docs/compliance/DATA_DELETION.md.")
+    problems = sum(bool(loc.problem) for loc in locations)
+    if problems:
+        print(f"{problems} problem(s) above: the list may be incomplete until they're fixed.")
+
+
 def cmd_doctor(args):
     """Diagnose a project's NeuralMind setup and print actionable fixes."""
     from neuralmind import doctor
@@ -3132,6 +3167,31 @@ def cmd_audit_checkpoint(args):
         return
     signed = f"signed with key {checkpoint['key_id']}" if checkpoint["key_id"] else "unsigned"
     print(f"✓ Checkpoint #{checkpoint['seq']} covers {checkpoint['records']} record(s) ({signed})")
+
+
+def cmd_audit_record_gap(args):
+    """Record audit writes that failed in the log itself, as one gap record."""
+    try:
+        record = AuditTrail(args.project_path).record_gap()
+    except Exception as exc:
+        print(f"✗ Gap not recorded: {exc}", file=sys.stderr)
+        print(
+            "  Fix what stops the log being written (disk space, permissions on "
+            ".neuralmind/), then run this again.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    if args.json:
+        print(json.dumps(record, sort_keys=True))
+        return
+    if record is None:
+        print("✓ No unrecorded audit write failures.")
+        return
+    details = record["details"]
+    print(
+        f"✓ Recorded a gap of {details['missing_records']} missing record(s), "
+        f"{details['first'] or '?'} to {details['last'] or '?'}, in the audit log."
+    )
 
 
 def cmd_audit_recent(args):
@@ -7376,6 +7436,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     doctor_p.set_defaults(func=cmd_doctor)
 
+    data_locations_help = (
+        "List every place NeuralMind keeps data for a project, inside and outside it "
+        "(read-only; run before and after deleting)"
+    )
+    data_locations_p = subparsers.add_parser(
+        "data-locations", help=data_locations_help, description=data_locations_help
+    )
+    data_locations_p.add_argument("project_path", nargs="?", default=".")
+    data_locations_p.add_argument("--json", "-j", action="store_true")
+    data_locations_p.set_defaults(func=cmd_data_locations)
+
     stats_p = subparsers.add_parser("stats", help="Show index statistics")
     stats_p.add_argument("project_path", type=_existing_project_dir)
     stats_p.add_argument("--json", "-j", action="store_true")
@@ -7783,6 +7854,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--json", "-j", action="store_true", help="Print the checkpoint record, for a SIEM"
     )
     audit_checkpoint.set_defaults(func=cmd_audit_checkpoint)
+
+    audit_record_gap = audit_sub.add_parser(
+        "record-gap",
+        help="Record audit writes that failed in the log itself, as one gap record",
+    )
+    audit_record_gap.add_argument("project_path", nargs="?", default=".")
+    audit_record_gap.add_argument(
+        "--json", "-j", action="store_true", help="Print the gap record (null if none)"
+    )
+    audit_record_gap.set_defaults(func=cmd_audit_record_gap)
 
     audit_recent = audit_sub.add_parser(
         "recent",

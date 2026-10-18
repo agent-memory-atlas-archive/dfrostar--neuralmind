@@ -69,7 +69,11 @@ run time, and a refusal is written to the audit log:
   reach admin-only tools.
 - **`require_encrypted_storage: true`.** NeuralMind refuses to build, query,
   serve MCP tools or run hooks until it has verified FileVault, BitLocker or
-  dm-crypt/LUKS on every volume holding the project's state.
+  dm-crypt/LUKS on every volume holding the project's state. *(v4.18.0+)* The
+  copies it writes under your home directory (Claude Code's synapse export,
+  the global query log) are written only where the same check passes.
+  `neuralmind data-locations .` lists every place the project's data lives, for
+  an assessor or a deletion.
 - **Local listeners only.** `neuralmind serve` refuses to start on an address
   other than loopback, or with `--no-auth`. A shared `neuralmind daemon`
   started that way refuses this project's requests, while still serving
@@ -203,6 +207,16 @@ written since the newest checkpoint are covered by the chain alone, so keep the
 interval short, and keep forwarding the log to your SIEM. `doctor` warns under
 the profile when the key or anchor directory isn't set, or the newest
 checkpoint is more than a week old.
+
+*(v4.18.0+)* A record that can't be written (a full disk, a permissions error)
+fails `doctor`'s *Audit log writes* check under the profile. If the failure
+can't be noted either, the call itself is refused, since nothing would show the
+gap. Fix the cause, then record the gap in the log itself, so the log and your
+SIEM show what's missing:
+
+```bash
+neuralmind audit record-gap /srv/app
+```
 
 For the practice-by-practice mapping, with what NeuralMind provides and what
 stays yours, see the [CMMC 2.0 table in the Compliance

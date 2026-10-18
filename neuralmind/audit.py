@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import re
 import threading
+from collections import deque
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -27,11 +29,46 @@ AUDIT_FILE_NAME = "audit_events.jsonl"
 # Held while a record is chained and appended, and while the log rotates. A
 # separate file, because rotation renames the log itself.
 AUDIT_LOCK_NAME = "audit_events.lock"
+# One line per record that couldn't be written. Every caller swallows a failed
+# append so auditing never blocks a query or a build; this file is how the gap
+# shows up (`neuralmind doctor`, *Audit log writes*) instead of going unseen.
+AUDIT_FAILURES_NAME = "audit_write_failures.jsonl"
+# How far `neuralmind audit record-gap` has recorded the failures file in the
+# log: its line count and their hash, so a deleted or replaced file isn't taken
+# as recorded. The failures file itself is only ever appended to.
+AUDIT_FAILURES_RECORDED_NAME = "audit_write_failures.recorded.json"
+logger = logging.getLogger(__name__)
 _AUDIT_CACHE: dict[str, AuditTrail] = {}
 # What rotate() names an archive, and what a hash looks like. A rotation
 # marker naming anything else is rejected rather than followed as a path.
 _ARCHIVE_NAME = re.compile(r"audit_events\.\d{8}_\d{6}\.jsonl")
 _SHA256_HEX = re.compile(r"[0-9a-f]{64}")
+
+
+class AuditUnrecordedError(RuntimeError):
+    """A record couldn't be written, and the failure couldn't be noted either.
+
+    Raised only under ``security.profile: cui``, where a complete audit log is
+    a control: with nothing durable left to show the gap, the call is refused
+    rather than allowed to go unrecorded. Callers that swallow a failed append
+    let this one through.
+    """
+
+
+def _ends_mid_line(path: Path) -> bool:
+    """Whether ``path`` is non-empty and doesn't end with a newline."""
+    try:
+        with path.open("rb") as file:
+            if file.seek(0, os.SEEK_END) == 0:
+                return False
+            file.seek(-1, os.SEEK_END)
+            return file.read(1) != b"\n"
+    except FileNotFoundError:
+        return False
+
+
+def _lines_sha256(lines: list[str]) -> str:
+    return hashlib.sha256("\n".join(lines).encode("utf-8")).hexdigest()
 
 
 # Actor resolution order: explicit > env var > OS user > "system"
@@ -133,8 +170,11 @@ class AuditTrail:
         self.project_path = Path(project_path).resolve()
         self.events_file = self.project_path / ".neuralmind" / AUDIT_FILE_NAME
         self.lock_file = self.events_file.with_name(AUDIT_LOCK_NAME)
+        self.failures_file = self.events_file.with_name(AUDIT_FAILURES_NAME)
+        self.failures_recorded_file = self.events_file.with_name(AUDIT_FAILURES_RECORDED_NAME)
         self._lock = threading.Lock()
         self._identity_os: bool | None = None
+        self._profile_cui: bool | None = None
 
     def _os_identity_mode(self) -> bool:
         """True when the project sets ``security.identity: os``. Read once."""
@@ -149,34 +189,52 @@ class AuditTrail:
                 self._identity_os = False
         return self._identity_os
 
+    def _cui_profile(self) -> bool:
+        """True under ``security.profile: cui``. Read once."""
+        if self._profile_cui is None:
+            try:
+                from .security_config import PROFILE_CUI, load_security_settings
+
+                self._profile_cui = load_security_settings(self.project_path).profile == PROFILE_CUI
+            except Exception:
+                self._profile_cui = False
+        return self._profile_cui
+
     def _last_sha256_from_file(self) -> str:
         """Read the last non-empty line's sha256, or '0'*64 if file is empty/legacy."""
         return self._last_sha256_of(self.events_file)
 
     @classmethod
     def _last_sha256_of(cls, path: Path) -> str:
-        """The sha256 of ``path``'s last non-empty line, or '0'*64 if it has none."""
+        """The sha256 of ``path``'s last readable record, or '0'*64 if it has none.
+
+        A line that doesn't parse, such as a record cut short by a full disk,
+        is passed over, so the next record chains to the last intact one;
+        ``verify`` still reports the damaged line.
+        """
         if not path.exists():
             return "0" * 64
         try:
-            # Read all lines; find last non-empty; extract sha256
-            with path.open(encoding="utf-8") as f:
-                last = ""
+            # Only the last few lines are parsed: this runs under the append
+            # lock on every record, and a damaged tail is one or two lines.
+            tail: deque[str] = deque(maxlen=8)
+            with path.open(encoding="utf-8", errors="replace") as f:
                 for raw_line in f:
                     if len(raw_line) > cls.MAX_AUDIT_LINE_BYTES:
                         continue  # Skip crafted oversized lines (DoS guard)
                     line = raw_line.strip()
                     if line:
-                        last = line
-            if not last:
-                return "0" * 64
-            try:
-                obj = json.loads(last)
-            except json.JSONDecodeError:
-                return "0" * 64
-            sha = obj.get("sha256") if isinstance(obj, dict) else None
+                        tail.append(line)
+            last = None
+            for line in reversed(tail):
+                try:
+                    last = json.loads(line)
+                    break
+                except json.JSONDecodeError:
+                    continue
+            sha = last.get("sha256") if isinstance(last, dict) else None
             return sha if isinstance(sha, str) and sha else "0" * 64
-        except (UnicodeDecodeError, OSError):
+        except OSError:
             return "0" * 64
 
     def append_event(
@@ -190,46 +248,216 @@ class AuditTrail:
         actor_role: str = "",
         ip_address: str = "",
     ) -> dict[str, Any]:
-        if actor is None and self._os_identity_mode():
-            # Under security.identity: os the actor is the OS account, as on
-            # the MCP path. NEURALMIND_ACTOR is inherited from whoever started
-            # the process, so it is recorded as a claim, not believed.
-            from .identity import os_identity
+        try:
+            if actor is None and self._os_identity_mode():
+                # Under security.identity: os the actor is the OS account, as on
+                # the MCP path. NEURALMIND_ACTOR is inherited from whoever started
+                # the process, so it is recorded as a claim, not believed.
+                from .identity import os_identity
 
-            claimed = os.environ.get("NEURALMIND_ACTOR")
-            actor = os_identity() or "unknown"
-            if claimed and claimed != actor:
-                details = {**(details or {}), "claimed_actor": claimed}
-        actor = _resolve_actor(actor)
-        # The MCP server, the hooks, the CLI and the daemon all append to this
-        # log. Each record chains to the last one in the file, so reading that
-        # hash and appending must happen under one cross-process lock: with a
-        # thread lock alone, two processes chained to the same record and
-        # verify() reported a log nobody had touched as tampered.
-        with self._lock, _exclusive_file_lock(self.lock_file):
-            prev_sha256 = self._last_sha256_from_file()
-            event = AuditEvent(
-                category=category,
-                action=action,
-                actor=actor,
-                status=status,
-                target=target,
-                details=details or {},
-                timestamp=datetime.now(timezone.utc).isoformat(),
-                actor_role=actor_role,
-                ip_address=ip_address,
-                prev_sha256=prev_sha256,
-                sha256="",
-            )
-            # SHA-256 of prev_hash + stable event serialization
-            payload_str = prev_sha256 + event.to_hashable_str()
-            event.sha256 = hashlib.sha256(payload_str.encode("utf-8")).hexdigest()
+                claimed = os.environ.get("NEURALMIND_ACTOR")
+                actor = os_identity() or "unknown"
+                if claimed and claimed != actor:
+                    details = {**(details or {}), "claimed_actor": claimed}
+            actor = _resolve_actor(actor)
+            # The MCP server, the hooks, the CLI and the daemon all append to this
+            # log. Each record chains to the last one in the file, so reading that
+            # hash and appending must happen under one cross-process lock: with a
+            # thread lock alone, two processes chained to the same record and
+            # verify() reported a log nobody had touched as tampered.
+            with self._lock, _exclusive_file_lock(self.lock_file):
+                prev_sha256 = self._last_sha256_from_file()
+                event = AuditEvent(
+                    category=category,
+                    action=action,
+                    actor=actor,
+                    status=status,
+                    target=target,
+                    details=details or {},
+                    timestamp=datetime.now(timezone.utc).isoformat(),
+                    actor_role=actor_role,
+                    ip_address=ip_address,
+                    prev_sha256=prev_sha256,
+                    sha256="",
+                )
+                # SHA-256 of prev_hash + stable event serialization
+                payload_str = prev_sha256 + event.to_hashable_str()
+                event.sha256 = hashlib.sha256(payload_str.encode("utf-8")).hexdigest()
 
-            payload = event.to_dict()
-            self.events_file.parent.mkdir(parents=True, exist_ok=True)
-            with self.events_file.open("a", encoding="utf-8") as file:
-                file.write(json.dumps(payload, sort_keys=True) + "\n")
-            return payload
+                payload = event.to_dict()
+                self.events_file.parent.mkdir(parents=True, exist_ok=True)
+                # A record cut short by a full disk ends without a newline, and
+                # this one would join it into one line nothing can read.
+                start = "\n" if _ends_mid_line(self.events_file) else ""
+                with self.events_file.open("a", encoding="utf-8") as file:
+                    file.write(start + json.dumps(payload, sort_keys=True) + "\n")
+                return payload
+        except Exception as exc:
+            if not self._record_failure(category, action, exc) and self._cui_profile():
+                # A full disk or an unwritable .neuralmind/ usually fails the
+                # note too, leaving nothing durable to show the gap.
+                raise AuditUnrecordedError(
+                    f"audit record {category}/{action} couldn't be written ({exc}) or noted, "
+                    "so under security.profile: cui the call is reported as failed and its "
+                    "result withheld; anything it already changed stays changed. Fix the cause "
+                    "(disk space, permissions on .neuralmind/)."
+                ) from exc
+            raise
+
+    def _record_failure(self, category: str, action: str, exc: BaseException) -> bool:
+        """Note a record that couldn't be written, where `doctor` will find it.
+
+        Written outside the log's lock and to a file of its own: the lock or the
+        log may be what failed. Returns whether the note was written; if it
+        wasn't, the warning says so.
+        """
+        line = json.dumps(
+            {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "event": f"{category}/{action}",
+                "error": f"{type(exc).__name__}: {exc}"[:500],
+            },
+            sort_keys=True,
+        )
+        unrecorded = ""
+        try:
+            self.failures_file.parent.mkdir(parents=True, exist_ok=True)
+            with self.failures_file.open("a", encoding="utf-8") as file:
+                # A leading newline: a note cut short by a full disk ends without
+                # one, and the next would otherwise join it into one bad line.
+                file.write("\n" + line)
+        except OSError as write_exc:
+            unrecorded = f" (and couldn't be noted in {self.failures_file}: {write_exc})"
+        logger.warning(
+            "audit record %s/%s was not written: %s%s", category, action, exc, unrecorded
+        )
+        return not unrecorded
+
+    def failure_notes(self) -> list[str]:
+        """Every note of a record that couldn't be written, recorded or not."""
+        try:
+            # A note cut off by a full disk can end mid-character.
+            text = self.failures_file.read_text(encoding="utf-8", errors="replace")
+        except FileNotFoundError:
+            return []
+        return [line for line in text.splitlines() if line.strip()]
+
+    def unrecorded_failures(self, notes: list[str] | None = None) -> list[str]:
+        """The notes no gap record in the log covers yet.
+
+        If the failures file no longer starts with the lines ``record_gap``
+        recorded (it was deleted or replaced), every note counts as unrecorded.
+        """
+        notes = self.failure_notes() if notes is None else notes
+        try:
+            mark = json.loads(self.failures_recorded_file.read_text(encoding="utf-8"))
+            through = int(mark["lines"])
+            recorded_sha256 = str(mark["sha256"])
+        except (OSError, ValueError, KeyError, TypeError):
+            return notes
+        if 0 < through <= len(notes) and _lines_sha256(notes[:through]) == recorded_sha256:
+            return notes[through:]
+        return notes
+
+    def record_gap(self) -> dict[str, Any] | None:
+        """Record the failed writes in the log itself, as one gap record.
+
+        A record that couldn't be written can't be put back, but the log can
+        say it's missing: how many records, of which events, from when to
+        when, and the last error. The notes stay in the failures file. Returns
+        the gap record, or None when every failure is already recorded; raises,
+        leaving them unrecorded, if the gap record can't be written.
+        """
+        if not self.failures_file.exists():
+            return None  # nothing failed; and don't create .neuralmind/ for a lock
+        # One run at a time, so two can't record the same failures twice or
+        # leave the older run's mark last. A lock of its own: append_event
+        # takes the log's lock for each record.
+        with _exclusive_file_lock(self.failures_recorded_file.with_suffix(".lock")):
+            return self._record_gap_locked()
+
+    def _covered_in_log(self, notes: list[str]) -> tuple[int, str]:
+        """How many of ``notes`` a gap record in the log covers, and its sha256.
+
+        The mark is written after the gap record, so a run that fails between
+        the two leaves a gap record the mark doesn't show; without this, the
+        next run would record the same failures again.
+        """
+        covered, gap = 0, ""
+        try:
+            with self.events_file.open(encoding="utf-8", errors="replace") as file:
+                for raw_line in file:
+                    if '"gap_recorded"' not in raw_line:
+                        continue
+                    if len(raw_line) > self.MAX_AUDIT_LINE_BYTES:
+                        continue  # Skip crafted oversized lines (DoS guard)
+                    try:
+                        record = json.loads(raw_line)
+                        covers = record["details"]["covers"]
+                        lines, sha256 = int(covers["lines"]), str(covers["sha256"])
+                    except (ValueError, KeyError, TypeError):
+                        continue
+                    if covered < lines <= len(notes) and _lines_sha256(notes[:lines]) == sha256:
+                        covered, gap = lines, str(record.get("sha256", ""))
+        except OSError:
+            pass
+        return covered, gap
+
+    def _write_mark(self, notes: list[str], gap: str) -> None:
+        mark = {"lines": len(notes), "sha256": _lines_sha256(notes), "gap": gap}
+        self.failures_recorded_file.write_text(
+            json.dumps(mark, sort_keys=True) + "\n", encoding="utf-8"
+        )
+
+    def _record_gap_locked(self) -> dict[str, Any] | None:
+        notes = self.failure_notes()
+        new = self.unrecorded_failures(notes)
+        if not new:
+            return None
+        covered, gap = self._covered_in_log(notes)
+        if covered > len(notes) - len(new):
+            # An earlier run wrote the gap record but not its mark.
+            self._write_mark(notes[:covered], gap)
+            new = notes[covered:]
+            if not new:
+                return None
+        parsed = []
+        for line in new:
+            try:
+                note = json.loads(line)
+            except ValueError:
+                note = None
+            parsed.append(note if isinstance(note, dict) else {})
+        events: dict[str, int] = {}
+        for note in parsed:
+            key = str(note.get("event", "unknown"))
+            events[key] = events.get(key, 0) + 1
+        stamps = sorted(str(note["timestamp"]) for note in parsed if note.get("timestamp"))
+        record = self.append_event(
+            category="audit",
+            action="gap_recorded",
+            status="failure",
+            target=str(self.failures_file),
+            details={
+                "missing_records": len(new),
+                "first": stamps[0] if stamps else "",
+                "last": stamps[-1] if stamps else "",
+                "events": events,
+                "last_error": str(parsed[-1].get("error", "")),
+                # Which notes it covers, so a lost mark can be restored from it.
+                "covers": {"lines": len(notes), "sha256": _lines_sha256(notes)},
+            },
+        )
+        # A note written since `notes` was read lies past this mark, so it
+        # stays unrecorded until the next run.
+        try:
+            self._write_mark(notes, record["sha256"])
+        except OSError as exc:
+            raise OSError(
+                f"the gap record was written, but {self.failures_recorded_file} couldn't be "
+                f"({exc}); run this again to restore it without a second gap record"
+            ) from exc
+        return record
 
     def read_events(self) -> list[dict[str, Any]]:
         if not self.events_file.exists():

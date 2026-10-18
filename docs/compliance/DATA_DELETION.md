@@ -64,6 +64,12 @@ logging is on, the text of every query from every project.
 
 ### 3.1 Complete Deletion
 
+*(v4.18.0+)* Start with `neuralmind data-locations .`, which lists every
+location below that holds this project's data, resolved by the code that writes
+it, with how to remove each. Run it again at the end (§3.3). If it reports a
+`problem` with the config file, fix the file first: until it parses, the
+`db_path` index and anchored checkpoints it names aren't listed.
+
 First stop everything that writes NeuralMind data under this OS account, in
 every project and not only this one: end the agent sessions that use NeuralMind
 (Claude Code, Hermes-Agent, any MCP client), stop `neuralmind watch` and
@@ -76,8 +82,8 @@ Before anything is deleted, note the two locations the project's config file
 `.neuralmind/`, since the commands below delete that file:
 
 - **`db_path`**, where the index is kept if it isn't in `.neuralmind/`. The
-  index is `store*.sqlite*`, `index*.tvim*` and `bm25_index*.json` (turbovec), or `chroma.sqlite3`
-  and its UUID-named collection folders (ChromaDB). The names are fixed, so a
+  index is `store*.sqlite*`, `index*.tvim*` and `bm25_index*.json` (turbovec), or `chroma.sqlite3*`
+  (the database and its journals) and its UUID-named collection folders (ChromaDB). The names are fixed, so a
   location two projects share holds one index for both: it can't be split, and
   deleting it means the other project must run `neuralmind build` again.
   Delete those files, and the directory itself only if it holds nothing else.
@@ -120,7 +126,8 @@ rm -f .neuralmind-team-memory.json neuralmind-backend.yaml neuralmind-backend.ym
 slug="$(pwd -P | sed 's#/#-#g')"
 rm -f ~/.claude/projects/"$slug"/memory/synapse-activations.md
 
-# Outside the project: this project's queries in the global query log
+# Outside the project: this project's queries in the global query log. A line
+# that can't be parsed is kept; data-locations reports it, so inspect it.
 python3 - "$(pwd -P)" <<'PY'
 import json, sys
 from pathlib import Path
@@ -135,6 +142,10 @@ if log.exists():
     log.write_text("".join(l + "\n" for l in kept), encoding="utf-8")
 PY
 ```
+
+If `.neuralmind` is a symlink, `rm -rf .neuralmind/` empties the directory it
+points to but leaves that directory and the link: remove both
+(`data-locations` lists the target and the command).
 
 Then remove the rest of 2.3 that applies (the git hook blocks, the `CLAUDE.md`
 import line), the project's entry from `projects.json` (in
@@ -158,8 +169,9 @@ who pulls the change.
 # Remove only synapse store (keep index)
 rm -f .neuralmind/synapses.db
 
-# Remove only audit logs (the active log, its rotated archives and checkpoints)
-rm -f .neuralmind/audit_events*.jsonl .neuralmind/audit_checkpoints.jsonl
+# Remove only audit logs (the active log, its rotated archives, checkpoints,
+# and the notes of records that couldn't be written)
+rm -f .neuralmind/audit_events*.jsonl .neuralmind/audit_checkpoints.jsonl .neuralmind/audit_write_failures*
 
 # Remove only the session recap records (stored prompts and edited paths)
 neuralmind recap --clear
@@ -170,14 +182,24 @@ rm -f .neuralmind-team-memory.json
 
 ### 3.3 Verification
 
-After a complete deletion each of these should print nothing. Set the first
-two lines to the locations noted before deleting, or leave them empty:
+*(v4.18.0+)* `neuralmind data-locations .` should list as present only what you
+chose to keep (§1). It finds the `db_path` index and the anchored checkpoint
+file through the config file, which §3.1 deleted, so it can't see those two any
+more. Check them yourself on every version: set these lines to the locations
+noted before deleting (leave a line empty if that location wasn't set), and
+each check should print nothing:
 
 ```bash
 db_path=""      # the db_path, if one was set
 anchor_file=""  # the anchored checkpoint file, if erasure was required
-[ -z "$db_path" ] || ls "$db_path"/store*.sqlite* "$db_path"/index*.tvim* "$db_path"/bm25_index*.json "$db_path"/chroma.sqlite3 2>/dev/null
+[ -z "$db_path" ] || ls "$db_path"/store*.sqlite* "$db_path"/index*.tvim* "$db_path"/bm25_index*.json "$db_path"/chroma.sqlite3* 2>/dev/null
 [ -z "$anchor_file" ] || ls "$anchor_file" 2>/dev/null
+```
+
+Before v4.18.0, which has no `data-locations`, each of these should print
+nothing too:
+
+```bash
 grep -sl "neuralmind _hook" .claude/settings.json ~/.claude/settings.json
 grep -sF "$(pwd -P)" ~/.hermes/plugins/neuralmind/config.json
 ls -a .neuralmind/ graphify-out/ .neuralmind-team-memory.json neuralmind-backend.y*ml neuralmind-backend.json 2>/dev/null

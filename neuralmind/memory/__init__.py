@@ -187,10 +187,23 @@ def log_query_event(
 
     try:
         _append_jsonl(project_query_events_file(project_path), event)
-        _append_jsonl(global_query_events_file(), event)
+        if _global_copy_allowed(project_path):
+            _append_jsonl(global_query_events_file(), event)
     except Exception:
         return False
     return True
+
+
+def _global_copy_allowed(project_path: str | Path) -> bool:
+    """Whether the query may also go to the home directory's global log.
+
+    Under ``security.require_encrypted_storage``, only when the log's volume
+    is verified as encrypted: it holds every project's query text. The file
+    itself is checked, so a symlinked log is checked where it points.
+    """
+    from ..storage_guard import location_allowed
+
+    return location_allowed(project_path, global_query_events_file())
 
 
 def log_wakeup_event(
@@ -222,7 +235,8 @@ def log_wakeup_event(
 
     try:
         _append_jsonl(project_query_events_file(project_path), event)
-        _append_jsonl(global_query_events_file(), event)
+        if _global_copy_allowed(project_path):
+            _append_jsonl(global_query_events_file(), event)
     except Exception:
         return False
     return True
