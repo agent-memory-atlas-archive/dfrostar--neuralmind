@@ -1,7 +1,7 @@
 # Secure Software Development (NIST SP 800-218 SSDF)
 
-**Date:** 2026-10-18
-**Version:** 1.2
+**Date:** 2026-10-19
+**Version:** 1.3
 **Framework:** NIST SP 800-218 v1.1, Secure Software Development Framework (SSDF)
 
 ---
@@ -9,15 +9,18 @@
 ## 1. Purpose
 
 Map each SSDF practice to the evidence in this repository, so a federal buyer,
-an assessor, or the officer who signs CISA's Secure Software Development
-Attestation Form can check it rather than take it on trust.
+an assessor, or the officer who signs an attestation to the SSDF can check it
+rather than take it on trust.
 
-NIST doesn't certify software against the SSDF. A US federal agency buying
-software asks its producer to **attest** to the SSDF practices (OMB M-22-18 and
-M-23-16), on CISA's Secure Software Development Attestation Form, signed by
-the producer's CEO or a designee. For NeuralMind that is Cheval-Volant LLC.
-This document is the evidence behind that signature. It isn't the attestation
-itself.
+NIST doesn't certify software against the SSDF. OMB M-22-18 and M-23-16 had
+required US federal agencies to collect an attestation to the SSDF practices
+from their software producers, on CISA's Secure Software Development
+Attestation Form. OMB M-26-05 (January 23, 2026) rescinded both and left each
+agency to set its own risk-based requirements: an agency may still ask for that
+form, its own attestation, or an SBOM, but none is required government-wide.
+When one is asked for, it's signed by the producer's CEO or a designee; for
+NeuralMind that is Cheval-Volant LLC. This document is the evidence behind
+that signature. It isn't the attestation itself.
 
 Version 1.1 said `main` required a pull request and passing CI, that every
 change was reviewed in a pull request, and that mypy ran as a check. None of
@@ -89,7 +92,7 @@ directly.
 | **PW.1** Design to meet security requirements | Local-first architecture with no telemetry. The only outbound call by default is the first build's download of the embedding model from a pinned URL, checked against a pinned SHA256, and none when the model is pre-staged ([Compliance Summary](../COMPLIANCE-SUMMARY.md)). The threat model is in [`SECURITY-GUIDE.md`](../SECURITY-GUIDE.md) | |
 | **PW.2** Review the design | Design changes land as pull requests reviewed by the automated reviewers in PW.7. Larger features have a spec in `docs/specs/`, and every user-facing change has release notes ([SDLC policy](SDLC_POLICY.md) §2.1) | No second human reviews a design |
 | **PW.4** Reuse well-secured components | Dependency floors raised for advisories, a pinned set in `requirements-pinned.txt`, Dependabot alerts, and `pip-audit` on every change. Chosen dispositions follow the [vulnerability management policy](../VULNERABILITY-MANAGEMENT-POLICY.md) | |
-| **PW.5** Secure coding practices | ruff (including flake8-bugbear), black and `scripts/check_unreachable.py` fail CI. mypy runs on every change but is advisory: it reported 277 errors on 2026-10-18 and doesn't fail CI. Secrets are scanned before indexing (`neuralmind scan-for-secrets`) | |
+| **PW.5** Secure coding practices | ruff (including flake8-bugbear), black and `scripts/check_unreachable.py` fail CI. mypy fails CI as a ratchet (`scripts/check_mypy_baseline.py`): the 305 errors it reported when it became a check on 2026-10-19 are listed in `scripts/mypy-baseline.txt`, and any error not listed fails, as does a listed one that's been fixed until the list is lowered, so the count can only go down. Secrets are scanned before indexing (`neuralmind scan-for-secrets`) | mypy doesn't pass clean: 305 known errors |
 | **PW.6** Secure build configuration | A pure-Python wheel built with `python -m build` in a clean CI job. The container image runs as a non-root user and installs offline from pre-downloaded wheels (`Dockerfile`) | |
 | **PW.7** Review and analyze code for vulnerabilities | Pull requests are reviewed by two automated reviewers, GitHub Copilot code review and OpenAI Codex, and merged by the maintainer, who reads the diff; no rule makes a merge wait for either. CodeQL (Python, JavaScript/TypeScript, Actions) and bandit run on every change. Bandit's full report goes to code scanning, and high severity fails CI | A second human reviewer |
 | **PW.8** Test executable code | The pytest suite on Linux, macOS and Windows across Python 3.10–3.12, a run with the OpenSSL FIPS provider enforced, fresh-install and MCP stdio smoke tests, and the published-package and image smoke tests on release | Dynamic testing or fuzzing |
